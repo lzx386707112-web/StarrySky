@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.gcssloop.widget.RCImageView
+import com.lzx.musiclib.weight.RoundedImageView
 import com.lzx.musiclib.R
 import com.lzx.musiclib.loadImage
 import com.lzx.musiclib.navigationTo
@@ -57,7 +57,7 @@ class DynamicAdapter(val context: Context?) : RecyclerView.Adapter<DynamicAdapte
     override fun getItemCount(): Int = list.size
 
     class DynamicHolder(holder: View) : RecyclerView.ViewHolder(holder) {
-        val userHeader: RCImageView = holder.findViewById(R.id.userHeader)
+        val userHeader: RoundedImageView = holder.findViewById(R.id.userHeader)
         val nickname: TextView = holder.findViewById(R.id.nickname)
         val desc: TextView = holder.findViewById(R.id.desc)
         val audioView: MomentAudioView = holder.findViewById(R.id.audioView)

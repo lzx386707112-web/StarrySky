@@ -1,34 +1,27 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.lzx.starrysky.playback
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
-import com.google.android.exoplayer2.C
-import com.google.android.exoplayer2.DefaultRenderersFactory
-import com.google.android.exoplayer2.DefaultRenderersFactory.ExtensionRendererMode
-import com.google.android.exoplayer2.ExoPlaybackException
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.PlaybackParameters
-import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.SimpleExoPlayer
-import com.google.android.exoplayer2.audio.AudioAttributes
-import com.google.android.exoplayer2.ext.rtmp.RtmpDataSourceFactory
-import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
-import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.source.ProgressiveMediaSource
-import com.google.android.exoplayer2.source.dash.DashMediaSource
-import com.google.android.exoplayer2.source.hls.HlsMediaSource
-import com.google.android.exoplayer2.source.rtsp.RtspMediaSource
-import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector.ParametersBuilder
-import com.google.android.exoplayer2.upstream.DataSource
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
-import com.google.android.exoplayer2.upstream.cache.Cache
-import com.google.android.exoplayer2.upstream.cache.CacheDataSource
-import com.google.android.exoplayer2.util.Util
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
+import androidx.media3.common.util.Util
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.cache.Cache
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.rtmp.RtmpDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.extractor.DefaultExtractorsFactory
 import com.lzx.starrysky.SongInfo
 import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.cache.ExoCache
@@ -38,13 +31,17 @@ import com.lzx.starrysky.playback.Playback.Companion.STATE_ERROR
 import com.lzx.starrysky.playback.Playback.Companion.STATE_IDLE
 import com.lzx.starrysky.playback.Playback.Companion.STATE_PAUSED
 import com.lzx.starrysky.playback.Playback.Companion.STATE_PLAYING
-import com.lzx.starrysky.utils.isFLAC
 import com.lzx.starrysky.utils.isRTMP
 import com.lzx.starrysky.utils.orDef
 
-
 /**
- * isAutoManagerFocus 是否让播放器自动管理焦点
+ * 基于 Media3 [ExoPlayer] 的实现。
+ *
+ * 主路径使用官方推荐的 [MediaItem] + [DefaultMediaSourceFactory]（由 [ExoPlayer.Builder.setMediaSourceFactory] 注入），
+ * 由 Media3 根据 URI 选择 DASH / HLS / SS / 渐进式 等实现，避免手写各类型 [androidx.media3.exoplayer.source.MediaSource]。
+ * `rtmp://` 仍使用 [RtmpDataSource] + [ProgressiveMediaSource]，因默认工厂不处理 RTMP。
+ *
+ * @param isAutoManagerFocus 是否让播放器自动管理焦点
  */
 class ExoPlayback(
     val context: Context,
@@ -52,14 +49,7 @@ class ExoPlayback(
     private val isAutoManagerFocus: Boolean
 ) : Playback, FocusManager.OnFocusStateChangeListener {
 
-    companion object {
-        const val TYPE_RTMP = 400
-        const val TYPE_FLAC = 500
-    }
-
-    private var dataSourceFactory: DataSource.Factory? = null
-    private var player: SimpleExoPlayer? = null
-    private var mediaSource: MediaSource? = null
+    private var player: ExoPlayer? = null
     private var trackSelector: DefaultTrackSelector? = null
     private var trackSelectorParameters: DefaultTrackSelector.Parameters? = null
 
@@ -79,7 +69,7 @@ class ExoPlayback(
             STATE_IDLE
         } else {
             when (player?.playbackState) {
-                Player.STATE_IDLE -> STATE_IDLE //error或stop
+                Player.STATE_IDLE -> STATE_IDLE
                 Player.STATE_BUFFERING -> STATE_BUFFERING
                 Player.STATE_READY -> {
                     if (player?.playWhenReady == true) STATE_PLAYING else STATE_PAUSED
@@ -119,6 +109,17 @@ class ExoPlayback(
 
     private fun getPlayWhenReady() = player?.playWhenReady ?: false
 
+    /**
+     * 与 [FocusManager.updateAudioFocus] 约定：第二参数须为 StarrySky [Playback] 的状态常量
+     *（与 [playbackState] 返回值一致），不能传 Media3 [Player] 的 playbackState 数值
+     *（例如 [Player.STATE_ENDED] 与 [Playback.STATE_PAUSED] 均为 4，语义不同）。
+     */
+    private fun updateManualAudioFocus(playbackStateForFocus: Int = playbackState()) {
+        if (!isAutoManagerFocus) {
+            focusManager.updateAudioFocus(getPlayWhenReady(), playbackStateForFocus)
+        }
+    }
+
     override fun play(songInfo: SongInfo, isPlayWhenReady: Boolean) {
         val mediaId = songInfo.songId
         if (mediaId.isEmpty()) {
@@ -131,171 +132,108 @@ class ExoPlayback(
         }
         StarrySky.log(
             "title = " + songInfo.songName +
-                    " \n音频是否有改变 = " + mediaHasChanged +
-                    " \n是否立即播放 = " + isPlayWhenReady +
-                    " \nurl = " + songInfo.songUrl
+                " \n音频是否有改变 = " + mediaHasChanged +
+                " \n是否立即播放 = " + isPlayWhenReady +
+                " \nurl = " + songInfo.songUrl
         )
 
-        //url 处理
         var source = songInfo.songUrl
         if (source.isEmpty()) {
             callback?.onPlaybackError(currSongInfo, "播放 url 为空")
             return
         }
-        source = source.replace(" ".toRegex(), "%20") // Escape spaces for URL
-        //代理url
+        source = source.replace(" ".toRegex(), "%20")
         val proxyUrl = cache?.getProxyUrl(source, songInfo)
         source = if (proxyUrl.isNullOrEmpty()) source else proxyUrl
-        mediaSource = createMediaSource(source)
-        if (mediaHasChanged || player == null) {
-            //创建播放器实例
-            createExoPlayer()
+        val uri = Uri.parse(source)
 
-            player?.setMediaSource(mediaSource!!)
-            player?.prepare()
-            if (!isAutoManagerFocus) {
-                focusManager.updateAudioFocus(getPlayWhenReady(), STATE_BUFFERING)
-            }
+        val needReload =
+            mediaHasChanged || player == null || (sourceTypeErrorInfo.happenSourceError && !mediaHasChanged)
+
+        if (mediaHasChanged || player == null) {
+            createExoPlayer()
         }
-        //当错误发生时，如果还播放同一首歌，
-        //这时候需要重新加载一下，并且吧进度 seekTo 到出错的地方
-        if (sourceTypeErrorInfo.happenSourceError && !mediaHasChanged) {
-            player?.setMediaSource(mediaSource!!)
-            player?.prepare()
-            if (!isAutoManagerFocus) {
-                focusManager.updateAudioFocus(getPlayWhenReady(), STATE_BUFFERING)
-            }
-            if (sourceTypeErrorInfo.currPositionWhenError != 0L) {
-                if (sourceTypeErrorInfo.seekToPositionWhenError != 0L) {
-                    player?.seekTo(sourceTypeErrorInfo.seekToPositionWhenError)
+
+        if (needReload) {
+            runCatching {
+                if (source.isRTMP()) {
+                    val rtmpSource = ProgressiveMediaSource.Factory(RtmpDataSource.Factory())
+                        .createMediaSource(MediaItem.fromUri(uri))
+                    player?.setMediaSource(rtmpSource, /* resetPosition = */ true)
                 } else {
-                    player?.seekTo(sourceTypeErrorInfo.currPositionWhenError)
+                    player?.setMediaItem(MediaItem.fromUri(uri), /* resetPosition = */ true)
+                }
+                player?.prepare()
+            }.onFailure { e ->
+                callback?.onPlaybackError(currSongInfo, "无法加载媒体: ${e.message ?: e.javaClass.simpleName}")
+                return
+            }
+            updateManualAudioFocus(STATE_BUFFERING)
+            if (sourceTypeErrorInfo.happenSourceError && !mediaHasChanged) {
+                if (sourceTypeErrorInfo.currPositionWhenError != 0L) {
+                    if (sourceTypeErrorInfo.seekToPositionWhenError != 0L) {
+                        player?.seekTo(sourceTypeErrorInfo.seekToPositionWhenError)
+                    } else {
+                        player?.seekTo(sourceTypeErrorInfo.currPositionWhenError)
+                    }
                 }
             }
         }
         StarrySky.log("isPlayWhenReady = $isPlayWhenReady")
         StarrySky.log("---------------------------------------")
-        //如果准备好就播放
         if (isPlayWhenReady) {
             player?.playWhenReady = true
             hasError = false
-            if (!isAutoManagerFocus) {
-                player?.playbackState?.let { focusManager.updateAudioFocus(getPlayWhenReady(), it) }
-            }
-        }
-    }
-
-    private fun String.hasMediaSource(): Boolean =
-        runCatching {
-            Class.forName("com.google.android.exoplayer2.$this")
-            return@runCatching true
-        }.onFailure {
-            it.printStackTrace()
-        }.getOrElse { false }
-
-    @Synchronized
-    private fun createMediaSource(source: String): MediaSource {
-        val uri = Uri.parse(source)
-        val isRtmpSource = source.isRTMP()
-        val isFlacSource = source.isFLAC()
-        val type = when {
-            isRtmpSource -> TYPE_RTMP
-            isFlacSource -> TYPE_FLAC
-            else -> Util.inferContentType(uri, null)
-
-        }
-        dataSourceFactory = buildDataSourceFactory(type)
-        return when (type) {
-            C.TYPE_DASH -> {
-                if ("source.dash.DashMediaSource".hasMediaSource()) {
-                    return DashMediaSource.Factory(dataSourceFactory!!).createMediaSource(MediaItem.fromUri(uri))
-                } else {
-                    throw IllegalStateException("has not DashMediaSource")
-                }
-            }
-            C.TYPE_SS -> {
-                if ("source.smoothstreaming.SsMediaSource".hasMediaSource()) {
-                    return SsMediaSource.Factory(dataSourceFactory!!).createMediaSource(MediaItem.fromUri(uri))
-                } else {
-                    throw IllegalStateException("has not SsMediaSource")
-                }
-            }
-            C.TYPE_HLS -> {
-                if ("source.hls.HlsMediaSource".hasMediaSource()) {
-                    return HlsMediaSource.Factory(dataSourceFactory!!).createMediaSource(MediaItem.fromUri(uri))
-                } else {
-                    throw IllegalStateException("has not HlsMediaSource")
-                }
-            }
-            C.TYPE_RTSP -> {
-                if ("source.rtsp.RtspMediaSource".hasMediaSource()) {
-                    return RtspMediaSource.Factory().createMediaSource(MediaItem.fromUri(uri))
-                } else {
-                    throw IllegalStateException("has not RtspMediaSource")
-                }
-            }
-            C.TYPE_OTHER -> {
-                ProgressiveMediaSource.Factory(dataSourceFactory!!).createMediaSource(MediaItem.fromUri(uri))
-            }
-            TYPE_RTMP -> {
-                if ("ext.rtmp.RtmpDataSourceFactory".hasMediaSource()) {
-                    val factory = RtmpDataSourceFactory()
-                    return ProgressiveMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(uri))
-                } else {
-                    throw IllegalStateException("has not RtmpDataSourceFactory")
-                }
-            }
-            TYPE_FLAC -> {
-                val extractorsFactory = DefaultExtractorsFactory()
-                ProgressiveMediaSource.Factory(dataSourceFactory!!, extractorsFactory)
-                    .createMediaSource(MediaItem.fromUri(uri))
-            }
-            else -> throw IllegalStateException("Unsupported type: $type")
+            updateManualAudioFocus()
         }
     }
 
     @Synchronized
     private fun createExoPlayer() {
         if (player == null) {
-            @ExtensionRendererMode val extensionRendererMode = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+            val extensionRendererMode = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
             val renderersFactory = DefaultRenderersFactory(context)
                 .setExtensionRendererMode(extensionRendererMode)
 
-            trackSelectorParameters = ParametersBuilder(context).build()
+            trackSelectorParameters = DefaultTrackSelector.Parameters.Builder(context).build()
             trackSelector = DefaultTrackSelector(context)
-            trackSelector?.parameters = trackSelectorParameters as DefaultTrackSelector.Parameters
+            trackSelector?.parameters = trackSelectorParameters!!
 
-            player = SimpleExoPlayer.Builder(context, renderersFactory)
+            val mediaSourceFactory = DefaultMediaSourceFactory(
+                buildPrimaryDataSourceFactory(),
+                DefaultExtractorsFactory()
+            )
+
+            player = ExoPlayer.Builder(context)
+                .setRenderersFactory(renderersFactory)
                 .setTrackSelector(trackSelector!!)
+                .setMediaSourceFactory(mediaSourceFactory)
                 .build()
 
             player?.addListener(eventListener)
             player?.setAudioAttributes(AudioAttributes.DEFAULT, isAutoManagerFocus)
-            if (!isAutoManagerFocus) {
-                player?.playbackState?.let { focusManager.updateAudioFocus(getPlayWhenReady(), it) }
-            }
+            updateManualAudioFocus()
         }
     }
 
+    /**
+     * 供 [DefaultMediaSourceFactory] 使用的上游 [DataSource.Factory]；在开启 [ExoCache] 时包一层 [CacheDataSource]。
+     * 与原先「仅非流媒体走缓存」相比，此处对 HLS/DASH 等也可走缓存（Media3 常规用法）；RTMP 仍走独立分支。
+     */
     @Synchronized
-    private fun buildDataSourceFactory(type: Int): DataSource.Factory? {
+    private fun buildPrimaryDataSourceFactory(): DataSource.Factory {
         val userAgent = Util.getUserAgent(context, "StarrySky")
-        val httpDataSourceFactory = DefaultHttpDataSourceFactory(
-            userAgent,
-            DefaultHttpDataSource.DEFAULT_CONNECT_TIMEOUT_MILLIS,
-            DefaultHttpDataSource.DEFAULT_READ_TIMEOUT_MILLIS,
-            true
-        )
-        return if (cache?.isOpenCache() == true && cache is ExoCache && !type.isStreamingType()) {
-            val upstreamFactory = DefaultDataSourceFactory(context, httpDataSourceFactory)
-            buildCacheDataSource(upstreamFactory, cache.getDownloadCache())
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent(userAgent)
+            .setConnectTimeoutMs(8000)
+            .setReadTimeoutMs(8000)
+            .setAllowCrossProtocolRedirects(true)
+        val upstream = DefaultDataSource.Factory(context, httpDataSourceFactory)
+        return if (cache?.isOpenCache() == true && cache is ExoCache) {
+            buildCacheDataSource(upstream, cache.getDownloadCache()) ?: upstream
         } else {
-            DefaultDataSourceFactory(context, httpDataSourceFactory)
+            upstream
         }
-    }
-
-    private fun Int.isStreamingType(): Boolean {
-        return this == TYPE_RTMP || this == C.TYPE_DASH || this == C.TYPE_SS || this == C.TYPE_HLS
     }
 
     @Synchronized
@@ -309,10 +247,9 @@ class ExoPlayback(
     }
 
     override fun stop() {
-        player?.stop(true)
-        player?.release()
         player?.removeListener(eventListener)
-//        player?.removeAnalyticsListener(analyticsListener)
+        player?.stop()
+        player?.release()
         player = null
         if (!isAutoManagerFocus) {
             focusManager.release()
@@ -321,9 +258,7 @@ class ExoPlayback(
 
     override fun pause() {
         player?.playWhenReady = false
-        if (!isAutoManagerFocus) {
-            player?.playbackState?.let { focusManager.updateAudioFocus(getPlayWhenReady(), it) }
-        }
+        updateManualAudioFocus()
     }
 
     override fun seekTo(position: Long) {
@@ -339,7 +274,7 @@ class ExoPlayback(
             val currSpeed = it.playbackParameters.speed
             val currPitch = it.playbackParameters.pitch
             val newSpeed = currSpeed + speed
-            it.setPlaybackParameters(PlaybackParameters(newSpeed, currPitch))
+            it.playbackParameters = PlaybackParameters(newSpeed, currPitch)
         }
     }
 
@@ -351,7 +286,7 @@ class ExoPlayback(
             if (newSpeed <= 0) {
                 newSpeed = 0f
             }
-            it.setPlaybackParameters(PlaybackParameters(newSpeed, currPitch))
+            it.playbackParameters = PlaybackParameters(newSpeed, currPitch)
         }
     }
 
@@ -361,7 +296,7 @@ class ExoPlayback(
             val currPitch = it.playbackParameters.pitch
             val newSpeed = if (refer) currSpeed * multiple else multiple
             if (newSpeed > 0) {
-                it.setPlaybackParameters(PlaybackParameters(newSpeed, currPitch))
+                it.playbackParameters = PlaybackParameters(newSpeed, currPitch)
             }
         }
     }
@@ -382,13 +317,14 @@ class ExoPlayback(
         this.callback = callback
     }
 
-    private inner class ExoPlayerEventListener : Player.EventListener {
+    private inner class ExoPlayerEventListener : Player.Listener {
 
-        override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
+        private fun dispatchPlaybackStateChanged() {
+            val playbackState = player?.playbackState ?: Player.STATE_IDLE
+            val playWhenReady = player?.playWhenReady == true
             var newState = STATE_IDLE
             when (playbackState) {
                 Player.STATE_IDLE -> {
-                    //error和stop的时候会是这个状态，这里过滤掉error，避免重复回调
                     newState = if (hasError) STATE_ERROR else STATE_IDLE
                 }
                 Player.STATE_READY -> {
@@ -408,16 +344,29 @@ class ExoPlayback(
             }
         }
 
-        override fun onPlayerError(error: ExoPlaybackException) {
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            dispatchPlaybackStateChanged()
+        }
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            dispatchPlaybackStateChanged()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
             error.printStackTrace()
             hasError = true
-            val what: String = when (error.type) {
-                ExoPlaybackException.TYPE_SOURCE -> error.sourceException.message.toString()
-                ExoPlaybackException.TYPE_RENDERER -> error.rendererException.message.toString()
-                ExoPlaybackException.TYPE_UNEXPECTED -> error.unexpectedException.message.toString()
-                else -> "Unknown: $error"
-            }
-            if (error.type == ExoPlaybackException.TYPE_SOURCE) {
+            val what = error.message ?: "errorCode=${error.errorCode}"
+            val sourceLike = error.cause is java.io.IOException ||
+                error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ||
+                error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+                error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ||
+                error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
+                error.errorCode == PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE ||
+                error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
+                error.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ||
+                error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
+                error.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED
+            if (sourceLike) {
                 sourceTypeErrorInfo.happenSourceError = true
                 sourceTypeErrorInfo.seekToPositionWhenError = sourceTypeErrorInfo.seekToPosition
                 sourceTypeErrorInfo.currPositionWhenError = currentStreamPosition()
@@ -439,15 +388,14 @@ class ExoPlayback(
  */
 class SourceTypeErrorInfo {
     var seekToPosition = 0L
-    var happenSourceError = false //是否发生资源问题的错误
+    var happenSourceError = false
     var seekToPositionWhenError = 0L
-    var currPositionWhenError = 0L //发生错误时的进度
+    var currPositionWhenError = 0L
 
     fun clear() {
-        happenSourceError = false //是否发生资源问题的错误
+        happenSourceError = false
         seekToPosition = 0L
         seekToPositionWhenError = 0L
-        currPositionWhenError = 0L //发生错误时的进度
+        currPositionWhenError = 0L
     }
 }
-

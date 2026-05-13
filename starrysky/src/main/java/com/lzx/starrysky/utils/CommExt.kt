@@ -171,7 +171,7 @@ fun String?.getTargetClass(): Class<*>? {
 }
 
 fun String.md5(): String {
-    return MD5.hexdigest(this)
+    return MD5.hexdigest(this).orEmpty()
 }
 
 fun String.isRTMP(): Boolean {

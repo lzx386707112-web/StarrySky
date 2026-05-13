@@ -1,18 +1,22 @@
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
-apply plugin: 'kotlin-kapt'
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.kapt'
+}
 
 android {
-    compileSdkVersion 31
+    namespace 'com.lzx.musiclib'
+    compileSdk 34
+
     defaultConfig {
-        applicationId "com.lzx.starrysky"
-        minSdkVersion 16
-        targetSdkVersion 31
+        applicationId "com.lzx.musiclib"
+        minSdk 21
+        targetSdk 34
         versionCode 1
         versionName "1.0"
         multiDexEnabled true
     }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -20,52 +24,57 @@ android {
         }
     }
 
-    lintOptions {
+    lint {
         abortOnError false
     }
 
     compileOptions {
-        sourceCompatibility 1.8
-        targetCompatibility 1.8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
-    dependencies {
-        implementation fileTree(dir: 'libs', include: ['*.jar'])
-        //noinspection GradleCompatible
-        implementation 'com.android.support:appcompat-v7:28.0.0'
-        implementation "com.android.support:design:28.0.0"
-        implementation 'androidx.constraintlayout:constraintlayout:2.0.3'
-        implementation 'com.github.bumptech.glide:glide:4.11.0'
-        implementation "com.squareup.okhttp3:okhttp:4.1.0"
-
-        implementation "com.squareup.retrofit2:retrofit:2.9.0"
-        implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
-        implementation 'com.squareup.okhttp3:logging-interceptor:3.11.0'
-        implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9"
-        implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.9"
-        implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.3.0-beta01"
-
-        implementation project(':starrysky')
-//        implementation 'com.github.EspoirX:StarrySky:v2.6.3'
-
-        implementation 'com.google.android.exoplayer:exoplayer-hls:2.14.1'
-        implementation 'com.google.android.exoplayer:extension-rtmp:2.14.1'
-        implementation 'com.google.android.exoplayer:exoplayer-dash:2.14.1'
-        implementation 'com.google.android.exoplayer:exoplayer-smoothstreaming:2.14.1'
-
-        implementation 'com.qw:soulpermission:1.3.0'
-        implementation 'com.danikula:videocache:2.7.1'
-        implementation 'com.bigkoo:convenientbanner:2.1.5'
-        implementation 'com.gcssloop.widget:rclayout:1.8.1'
-        implementation 'com.mikhaellopez:circularimageview:4.2.0'
-        implementation 'com.noober.background:core:1.6.5'
-        implementation 'com.afollestad.material-dialogs:core:3.3.0'
-        implementation 'com.afollestad.material-dialogs:bottomsheets:3.3.0'
-
-        implementation 'com.tencent.bugly:crashreport:3.1.0'
-        implementation 'com.tencent.bugly:nativecrashreport:3.7.1'
-
-        implementation "com.github.ssseasonnn.RxDownload:rxdownload4:1.0.9"
-        implementation 'com.github.Lundez:Croller:1.0.3'
+    kotlinOptions {
+        jvmTarget = "17"
+        freeCompilerArgs += ["-opt-in=androidx.media3.common.util.UnstableApi"]
     }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    kapt 'com.github.bumptech.glide:compiler:4.16.0'
+
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
+    implementation "com.squareup.retrofit2:retrofit:2.9.0"
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation "com.squareup.okhttp3:logging-interceptor:4.12.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0"
+
+    implementation project(':starrysky')
+
+    def m3 = rootProject.ext.media3_version
+    implementation "androidx.media3:media3-exoplayer-hls:$m3"
+    implementation "androidx.media3:media3-datasource-rtmp:$m3"
+    implementation "androidx.media3:media3-exoplayer-dash:$m3"
+    implementation "androidx.media3:media3-exoplayer-smoothstreaming:$m3"
+
+    implementation 'com.qw:soulpermission:1.3.0'
+    implementation 'com.danikula:videocache:2.7.1'
+    implementation 'com.bigkoo:convenientbanner:2.1.5'
+    implementation 'com.mikhaellopez:circularimageview:4.2.0'
+    implementation 'com.noober.background:core:1.6.5'
+    implementation 'com.afollestad.material-dialogs:core:3.3.0'
+    implementation 'com.afollestad.material-dialogs:bottomsheets:3.3.0'
+
+    implementation 'com.tencent.bugly:crashreport:3.1.0'
+    implementation 'com.tencent.bugly:nativecrashreport:3.7.1'
+
+    implementation "com.github.ssseasonnn.RxDownload:rxdownload4:1.0.9"
+    implementation 'com.github.Lundez:Croller:1.0.3'
 }

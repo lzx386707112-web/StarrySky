@@ -13,16 +13,7 @@ abstract class StarrySkyInterceptor {
 }
 
 interface InterceptCallback {
-    /**
-     * 执行下一个，用于上传一个文件
-     */
     fun onNext(songInfo: SongInfo?)
 
-    /**
-     * 中断
-     * msg:可以添加 msg
-     */
     fun onInterrupt(msg: String?)
 }
-
-

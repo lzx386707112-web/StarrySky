@@ -48,7 +48,7 @@
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@+id/tabLayout">
 
-        <com.gcssloop.widget.RCImageView
+        <com.lzx.musiclib.weight.RoundedImageView
             android:id="@+id/userHeader"
             android:layout_width="45dp"
             android:layout_height="45dp"

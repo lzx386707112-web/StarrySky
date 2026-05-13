@@ -57,7 +57,7 @@
         android:layout_marginRight="20dp"
         android:layout_marginBottom="80dp">
 
-        <com.gcssloop.widget.RCImageView
+        <com.lzx.musiclib.weight.RoundedImageView
             android:id="@+id/songCover"
             android:layout_width="60dp"
             android:layout_height="60dp"
@@ -118,7 +118,7 @@
         android:layout_marginRight="20dp"
         android:layout_marginBottom="80dp">
 
-        <com.gcssloop.widget.RCImageView
+        <com.lzx.musiclib.weight.RoundedImageView
             android:id="@+id/songCover"
             android:layout_width="60dp"
             android:layout_height="60dp"

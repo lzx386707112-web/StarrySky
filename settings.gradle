@@ -1,3 +1,23 @@
+pluginManagement {
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'com.android.application' version '8.5.2'
+        id 'com.android.library' version '8.5.2'
+        id 'org.jetbrains.kotlin.android' version '1.9.24'
+        id 'org.jetbrains.kotlin.plugin.parcelize' version '1.9.24'
+        id 'org.jetbrains.kotlin.kapt' version '1.9.24'
+    }
+}
+
+rootProject.name = "StarrySky"
+
 //include ':extension-flac2120'
 include ':starrysky'
 include ':app'

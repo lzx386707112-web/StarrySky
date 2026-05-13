@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <attr name="round_corner" format="dimension" />
+    <attr name="round_as_circle" format="boolean" />
+
+    <declare-styleable name="RoundedImageView">
+        <attr name="round_corner" />
+        <attr name="round_as_circle" />
+    </declare-styleable>
+
+    <declare-styleable name="RoundedRelativeLayout">
+        <attr name="round_corner" />
+    </declare-styleable>
+
     <declare-styleable name="DonutProgress">
         <attr name="donut_progress" format="float"/>
         <attr name="donut_max" format="integer"/>

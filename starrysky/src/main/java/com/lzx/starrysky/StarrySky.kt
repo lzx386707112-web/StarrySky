@@ -1,10 +1,10 @@
 package com.lzx.starrysky
 
-import android.util.Log
 import com.lzx.starrysky.cache.ICache
 import com.lzx.starrysky.control.PlayerControl
 import com.lzx.starrysky.intercept.StarrySkyInterceptor
 import com.lzx.starrysky.notification.INotification
+import com.lzx.starrysky.runtime.StarrySkyRuntime
 import com.lzx.starrysky.utils.StarrySkyConstant
 
 // StarrySky -> PlayerControl -> PlaybackManager -> player
@@ -28,9 +28,7 @@ object StarrySky {
     }
 
     internal fun log(msg: String) {
-        if (StarrySkyInstall.isDebug) {
-            Log.i("StarrySky", msg)
-        }
+        StarrySkyRuntime.logger.i("StarrySky", msg)
     }
 
     fun getStackTopActivity() = StarrySkyInstall.appLifecycleCallback.getStackTopActivity()
@@ -46,7 +44,7 @@ object StarrySky {
             playerControl = PlayerControl(
                 StarrySkyInstall.interceptors,
                 StarrySkyInstall.globalPlaybackStageListener,
-                getBinder()
+                getPlaybackHost()
             )
         }
         return playerControl!!
@@ -56,14 +54,14 @@ object StarrySky {
      * 获取soundPool
      */
     @JvmStatic
-    fun soundPool() = getBinder()?.soundPool
+    fun soundPool() = getPlaybackHost()?.soundPool
 
     /**
      * 切换系统和自定义通知栏
      */
     @JvmStatic
     fun changeNotification(notificationType: Int) {
-        getBinder()?.changeNotification(notificationType)
+        getPlaybackHost()?.changeNotification(notificationType)
     }
 
     /**
@@ -71,7 +69,7 @@ object StarrySky {
      */
     @JvmStatic
     fun closeNotification() {
-        getBinder()?.stopNotification()
+        getPlaybackHost()?.stopNotification()
     }
 
     /**
@@ -79,7 +77,7 @@ object StarrySky {
      */
     @JvmStatic
     fun openNotification() {
-        getBinder()?.openNotification()
+        getPlaybackHost()?.openNotification()
     }
 
     /**
@@ -87,14 +85,14 @@ object StarrySky {
      */
     @JvmStatic
     fun setIsOpenNotification(open: Boolean) {
-        getBinder()?.setIsOpenNotification(open)
+        getPlaybackHost()?.setIsOpenNotification(open)
     }
 
     /**
      * 获取当前通知栏类型
      */
     @JvmStatic
-    fun getNotificationType() = getBinder()?.getNotificationType()
+    fun getNotificationType() = getPlaybackHost()?.getNotificationType()
         ?: INotification.SYSTEM_NOTIFICATION
 
     /**
@@ -107,7 +105,7 @@ object StarrySky {
      * 获取播放缓存类
      */
     @JvmStatic
-    fun getPlayerCache(): ICache? = getBinder()?.getPlayerCache()
+    fun getPlayerCache(): ICache? = getPlaybackHost()?.getPlayerCache()
 
     /**
      * 音效相关，获取音效操作类
@@ -142,7 +140,7 @@ object StarrySky {
      */
     internal fun getImageLoader() = StarrySkyInstall.imageLoader
 
-    private fun getBinder() = StarrySkyInstall.binder
+    private fun getPlaybackHost() = StarrySkyInstall.playbackHost
 
     /**
      * 对象类的全置空

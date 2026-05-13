@@ -1,13 +1,14 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.lzx.starrysky.playback
 
 import android.content.Context
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import androidx.annotation.RequiresApi
-import com.google.android.exoplayer2.C
-import com.google.android.exoplayer2.C.AudioFocusGain
-import com.google.android.exoplayer2.audio.AudioAttributes
-import com.google.android.exoplayer2.util.Util
+import androidx.media3.common.C
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.util.Util
 import com.lzx.starrysky.StarrySky
 
 /**
@@ -60,6 +61,11 @@ class FocusManager(val context: Context) {
         focusGain = convertAudioAttributesToFocusGain(audioAttributes)
     }
 
+    /**
+     * @param playbackState 须为业务层 [Playback] 的状态常量（如 [Playback.STATE_IDLE]），须与
+     * [com.lzx.starrysky.playback.ExoPlayback.playbackState] 的映射一致；**不要**传入
+     * Media3 [androidx.media3.common.Player] 的 `playbackState` 原始值（与上述常量数值不完全对应）。
+     */
     fun updateAudioFocus(playWhenReady: Boolean, playbackState: Int): Int {
         if (shouldAbandonAudioFocus(playbackState)) {
             abandonAudioFocus()
@@ -76,7 +82,7 @@ class FocusManager(val context: Context) {
      * 判断是否需要放弃焦点
      */
     private fun shouldAbandonAudioFocus(playbackState: Int): Boolean {
-        return playbackState == Playback.STATE_IDLE || focusGain != C.AUDIOFOCUS_GAIN
+        return playbackState == Playback.STATE_IDLE || focusGain != AudioManager.AUDIOFOCUS_GAIN
     }
 
     /**
@@ -134,7 +140,7 @@ class FocusManager(val context: Context) {
             }
             val willPauseWhenDucked: Boolean = willPauseWhenDucked()
             audioFocusRequest = builder
-                .setAudioAttributes(audioAttributes.audioAttributesV21)
+                .setAudioAttributes(audioAttributes.getAudioAttributesV21().audioAttributes)
                 .setWillPauseWhenDucked(willPauseWhenDucked)
                 .setOnAudioFocusChangeListener(focusListener)
                 .build()
@@ -164,15 +170,14 @@ class FocusManager(val context: Context) {
         return audioAttributes.contentType == C.CONTENT_TYPE_SPEECH
     }
 
-    @AudioFocusGain
     private fun convertAudioAttributesToFocusGain(audioAttributes: AudioAttributes?): Int {
         return if (audioAttributes == null) {
-            C.AUDIOFOCUS_NONE
+            0
         } else when (audioAttributes.usage) {
-            C.USAGE_VOICE_COMMUNICATION_SIGNALLING -> C.AUDIOFOCUS_NONE
-            C.USAGE_GAME, C.USAGE_MEDIA -> C.AUDIOFOCUS_GAIN
-            C.USAGE_UNKNOWN -> C.AUDIOFOCUS_GAIN
-            C.USAGE_ALARM, C.USAGE_VOICE_COMMUNICATION -> C.AUDIOFOCUS_GAIN_TRANSIENT
+            C.USAGE_VOICE_COMMUNICATION_SIGNALLING -> 0
+            C.USAGE_GAME, C.USAGE_MEDIA -> AudioManager.AUDIOFOCUS_GAIN
+            C.USAGE_UNKNOWN -> AudioManager.AUDIOFOCUS_GAIN
+            C.USAGE_ALARM, C.USAGE_VOICE_COMMUNICATION -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
             C.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE,
             C.USAGE_ASSISTANCE_SONIFICATION,
             C.USAGE_NOTIFICATION,
@@ -180,12 +185,12 @@ class FocusManager(val context: Context) {
             C.USAGE_NOTIFICATION_COMMUNICATION_INSTANT,
             C.USAGE_NOTIFICATION_COMMUNICATION_REQUEST,
             C.USAGE_NOTIFICATION_EVENT,
-            C.USAGE_NOTIFICATION_RINGTONE -> C.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
-            C.USAGE_ASSISTANT -> if (Util.SDK_INT >= 19) C.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE else C.AUDIOFOCUS_GAIN_TRANSIENT
+            C.USAGE_NOTIFICATION_RINGTONE -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+            C.USAGE_ASSISTANT -> if (Util.SDK_INT >= 19) AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE else AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
             C.USAGE_ASSISTANCE_ACCESSIBILITY -> {
-                if (audioAttributes.contentType == C.CONTENT_TYPE_SPEECH) C.AUDIOFOCUS_GAIN_TRANSIENT else C.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+                if (audioAttributes.contentType == C.CONTENT_TYPE_SPEECH) AudioManager.AUDIOFOCUS_GAIN_TRANSIENT else AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
             }
-            else -> C.AUDIOFOCUS_NONE
+            else -> 0
         }
     }
 

@@ -16,7 +16,7 @@
         tools:ignore="MissingConstraints" />
 
 
-    <com.gcssloop.widget.RCImageView
+    <com.lzx.musiclib.weight.RoundedImageView
         android:id="@+id/cover"
         android:layout_width="200dp"
         android:layout_height="200dp"

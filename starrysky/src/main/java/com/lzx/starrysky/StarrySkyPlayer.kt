@@ -8,7 +8,8 @@ import com.lzx.starrysky.notification.NotificationConfig
 import com.lzx.starrysky.notification.NotificationManager
 import com.lzx.starrysky.playback.ExoPlayback
 import com.lzx.starrysky.playback.Playback
-import com.lzx.starrysky.service.MusicServiceBinder
+import com.lzx.starrysky.service.MusicPlaybackHost
+import com.lzx.starrysky.service.MusicRuntimeFactory
 
 class StarrySkyPlayer(private var userGlobalConfig: Boolean = true) {
 
@@ -152,22 +153,22 @@ class StarrySkyPlayer(private var userGlobalConfig: Boolean = true) {
         this.playback = playback
     }
 
-    private var binder: MusicServiceBinder? = null
+    private var playbackHost: MusicPlaybackHost? = null
 
     fun with(): PlayerControl {
         if (playerControl == null) {
-            binder = MusicServiceBinder(StarrySkyInstall.globalContext!!)
-            binder?.setPlayerCache(
+            playbackHost = MusicRuntimeFactory.createInProcessHost(StarrySkyInstall.globalContext!!)
+            playbackHost?.setPlayerCache(
                 playerCache,
                 cacheDestFileDir,
                 cacheMaxBytes
             )
-            binder?.setAutoManagerFocus(isAutoManagerFocus)
-            binder?.initPlaybackManager(playback)
+            playbackHost?.setAutoManagerFocus(isAutoManagerFocus)
+            playbackHost?.initPlaybackManager(playback)
             playerControl = PlayerControl(
                 StarrySkyInstall.interceptors,
                 StarrySkyInstall.globalPlaybackStageListener,
-                binder
+                playbackHost
             )
         }
         return playerControl!!

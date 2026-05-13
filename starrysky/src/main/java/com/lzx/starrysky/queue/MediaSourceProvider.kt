@@ -4,52 +4,43 @@ import com.lzx.starrysky.SongInfo
 import com.lzx.starrysky.utils.isIndexPlayable
 
 /**
- * 存储播放数据源
+ * 曲库：按插入顺序保存 [SongInfo]（以 songId 唯一），不承载「播放顺序 / 随机置换」逻辑。
+ * 结构变更时通过 [addPlaylistChangedListener] 通知 [MediaQueueManager] 等同步播放序缓存。
  */
 class MediaSourceProvider {
-    //数据源
-    private var songSources = linkedMapOf<String, SongInfo>()
 
-    //随机模式下的数据源
-    private var shuffleSongSources = mutableListOf<SongInfo>()
+    private val songSources = linkedMapOf<String, SongInfo>()
+
+    private val playlistChangedListeners = mutableListOf<() -> Unit>()
+
+    fun addPlaylistChangedListener(listener: () -> Unit) {
+        playlistChangedListeners.add(listener)
+    }
+
+    private fun notifyPlaylistStructureChanged() {
+        val snapshot = playlistChangedListeners.toList()
+        snapshot.forEach { runCatching { it() }.getOrDefault(Unit) }
+    }
+
+    /** 与 [songList] 相同的顺序，只读视图，避免无谓分配时可优先使用 */
+    fun orderedSongs(): List<SongInfo> = songSources.values.toList()
 
     var songList: MutableList<SongInfo>
-        get() {
-            val list = mutableListOf<SongInfo>()
-            songSources.forEach {
-                list.add(it.value)
-            }
-            return list
-        }
+        get() = orderedSongs().toMutableList()
         set(value) {
             songSources.clear()
             value.forEach {
                 songSources[it.songId] = it
             }
-            updateShuffleSongList()
+            notifyPlaylistStructureChanged()
         }
-
-    fun updateShuffleSongList() {
-        if (shuffleSongSources.isNotEmpty()) {
-            shuffleSongSources.clear()
-        }
-        shuffleSongSources.addAll(songList)
-        shuffleSongSources.shuffle()
-    }
 
     fun getSourceSize() = songSources.size
-
-    fun getShuffleSongList(): MutableList<SongInfo> {
-        if (shuffleSongSources.isEmpty()) {
-            updateShuffleSongList()
-        }
-        return shuffleSongSources
-    }
 
     fun addSongInfo(info: SongInfo) {
         if (!hasSongInfo(info.songId)) {
             songSources[info.songId] = info
-            updateShuffleSongList()
+            notifyPlaylistStructureChanged()
         }
     }
 
@@ -66,7 +57,7 @@ class MediaSourceProvider {
             list.forEach {
                 songSources[it.first] = it.second
             }
-            updateShuffleSongList()
+            notifyPlaylistStructureChanged()
         }
     }
 
@@ -77,13 +68,14 @@ class MediaSourceProvider {
     }
 
     fun clearSongInfos() {
-        songList.clear()
         songSources.clear()
+        notifyPlaylistStructureChanged()
     }
 
     fun deleteSongInfoById(songId: String): Boolean {
         if (hasSongInfo(songId)) {
             songSources.remove(songId)
+            notifyPlaylistStructureChanged()
             return true
         }
         return false
@@ -97,23 +89,23 @@ class MediaSourceProvider {
         if (songId.isEmpty()) {
             return null
         }
-        return songSources.getOrElse(songId) { null }
+        return songSources[songId]
     }
 
     fun getSongInfoByIndex(index: Int): SongInfo? {
-        return songList.elementAtOrNull(index)
+        return orderedSongs().elementAtOrNull(index)
     }
 
-    fun getIndexById(songId: String, isShuffle:Boolean = false): Int {
-        val info = getSongInfoById(songId)
-        return if (info != null) {
-            when (isShuffle) {
-                true -> shuffleSongSources.indexOf(info)
-                false -> songList.indexOf(info)
-            }
-        } else -1
+    /** 在「曲库插入顺序」中的下标 */
+    fun getIndexById(songId: String): Int {
+        val info = getSongInfoById(songId) ?: return -1
+        return orderedSongs().indexOf(info)
     }
 
+    /**
+     * 仅更新曲库中的条目（如封面），不改变曲目顺序与数量；
+     * 不触发 [notifyPlaylistStructureChanged]，由 [MediaQueueManager] 同步随机序中的同一引用。
+     */
     fun updateMusicArt(songInfo: SongInfo) {
         songSources[songInfo.songId] = songInfo
     }

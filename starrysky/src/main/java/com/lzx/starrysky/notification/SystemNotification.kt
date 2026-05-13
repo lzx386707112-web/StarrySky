@@ -14,6 +14,7 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.support.v4.media.session.MediaSessionCompat
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import com.lzx.starrysky.R
 import com.lzx.starrysky.SongInfo
@@ -27,7 +28,6 @@ import com.lzx.starrysky.notification.INotification.Companion.ACTION_STOP
 import com.lzx.starrysky.notification.imageloader.ImageLoaderCallBack
 import com.lzx.starrysky.notification.utils.NotificationUtils
 import com.lzx.starrysky.playback.Playback
-import com.lzx.starrysky.service.MusicService
 import com.lzx.starrysky.utils.getPendingIntent
 import com.lzx.starrysky.utils.getTargetClass
 
@@ -64,7 +64,7 @@ class SystemNotification constructor(
         mPlayIntent = config.playIntent ?: ACTION_PLAY.getPendingIntent()
         mPauseIntent = config.pauseIntent ?: ACTION_PAUSE.getPendingIntent()
 
-        mNotificationManager.cancelAll()
+        mNotificationManager?.cancel(INotification.NOTIFICATION_ID)
     }
 
     override fun onPlaybackStateChanged(songInfo: SongInfo?, playbackState: String,
@@ -105,7 +105,7 @@ class SystemNotification constructor(
         if (nowTime - lastClickTime <= INotification.TIME_INTERVAL) {
             return
         }
-        val player = (context as MusicService).binder?.player
+        val player = context.playbackFromMusicService() ?: return
         when (action) {
             ACTION_PAUSE -> pauseMusic(player)
             ACTION_PLAY -> restoreMusic(player)
@@ -122,18 +122,26 @@ class SystemNotification constructor(
             createNotification()
         }
         if (!mStarted) {
-            // The notification must be updated after setting started to true
-            val notification = createNotification()
-            if (notification != null) {
-                val filter = IntentFilter()
-                filter.addAction(ACTION_NEXT)
-                filter.addAction(ACTION_PAUSE)
-                filter.addAction(ACTION_PLAY)
-                filter.addAction(ACTION_PREV)
+            val service = context.musicServiceOrNull() ?: return
+            val notification = createNotification() ?: return
+            val filter = IntentFilter()
+            filter.addAction(ACTION_NEXT)
+            filter.addAction(ACTION_PAUSE)
+            filter.addAction(ACTION_PLAY)
+            filter.addAction(ACTION_PREV)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.registerReceiver(
+                    context,
+                    this,
+                    filter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+                )
+            } else {
+                @Suppress("DEPRECATION")
                 context.registerReceiver(this, filter)
-                (context as MusicService).customStartForeground(INotification.NOTIFICATION_ID, notification)
-                mStarted = true
             }
+            service.customStartForeground(INotification.NOTIFICATION_ID, notification)
+            mStarted = true
         }
     }
 
@@ -146,7 +154,7 @@ class SystemNotification constructor(
             } catch (ex: IllegalArgumentException) {
                 ex.printStackTrace()
             }
-            (context as MusicService).stopForeground(true)
+            context.musicServiceOrNull()?.stopForegroundCompat(true)
         }
     }
 
@@ -200,14 +208,14 @@ class SystemNotification constructor(
         setNotificationPlaybackState(notificationBuilder)
 
         if (!fetchArtUrl.isNullOrEmpty()) {
-            fetchBitmapFromURLAsync(fetchArtUrl, notificationBuilder)
+            fetchBitmapFromURLAsync(fetchArtUrl)
         }
         return notificationBuilder.build()
     }
 
     private fun setNotificationPlaybackState(builder: NotificationCompat.Builder) {
         if (!mStarted) {
-            (context as MusicService).stopForeground(true)
+            context.musicServiceOrNull()?.stopForegroundCompat(true)
             return
         }
         builder.setOngoing(playbackState == PlaybackStage.PLAYING)
@@ -216,18 +224,17 @@ class SystemNotification constructor(
     /**
      * 封面加载
      */
-    private fun fetchBitmapFromURLAsync(
-        fetchArtUrl: String,
-        notificationBuilder: NotificationCompat.Builder
-    ) {
+    private fun fetchBitmapFromURLAsync(fetchArtUrl: String) {
+        val captureSongId = songInfo?.songId
+        val captureUrl = fetchArtUrl
         StarrySky.getImageLoader()?.load(fetchArtUrl, object : ImageLoaderCallBack {
             override fun onBitmapLoaded(bitmap: Bitmap?) {
-                if (bitmap == null) {
-                    return
-                }
-                notificationBuilder.setLargeIcon(bitmap)
-                mNotificationManager?.notify(INotification.NOTIFICATION_ID,
-                    notificationBuilder.build())
+                if (bitmap == null || !mStarted) return
+                val si = songInfo
+                if (si == null || si.songId != captureSongId || si.songCover != captureUrl) return
+                si.coverBitmap = bitmap
+                val updated = createNotification() ?: return
+                mNotificationManager?.notify(INotification.NOTIFICATION_ID, updated)
             }
 
             override fun onBitmapFailed(errorDrawable: Drawable?) {

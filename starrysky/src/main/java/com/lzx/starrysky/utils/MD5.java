@@ -30,7 +30,7 @@ public class MD5 {
             char[] str = new char[32];
             int k = 0;
 
-            for(int i = 0; i < 16; ++i) {
+            for (int i = 0; i < 16; ++i) {
                 byte byte0 = tmp[i];
                 str[k++] = hexDigits[byte0 >>> 4 & 15];
                 str[k++] = hexDigits[byte0 & 15];

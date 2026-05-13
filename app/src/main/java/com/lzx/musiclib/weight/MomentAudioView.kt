@@ -3,19 +3,17 @@ package com.lzx.musiclib.weight
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
-import android.view.View.OnClickListener
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
-import com.gcssloop.widget.RCRelativeLayout
 import com.lzx.musiclib.LifecycleUtils
 import com.lzx.musiclib.R
 import com.lzx.starrysky.SongInfo
 import com.lzx.starrysky.StarrySky
 
-class MomentAudioView : RCRelativeLayout, LifecycleObserver {
+class MomentAudioView : RoundedRelativeLayout, LifecycleObserver {
 
     private lateinit var ivPlay: ImageView
     private lateinit var title: TextView

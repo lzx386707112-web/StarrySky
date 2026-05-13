@@ -8,7 +8,7 @@
     android:orientation="horizontal"
     tools:ignore="MissingPrefix">
 
-    <com.gcssloop.widget.RCImageView
+    <com.lzx.musiclib.weight.RoundedImageView
         android:id="@+id/cover"
         android:layout_width="50dp"
         android:layout_height="50dp"

@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
-    <com.gcssloop.widget.RCImageView
+    <com.lzx.musiclib.weight.RoundedImageView
         android:id="@+id/userHeader"
         android:layout_width="56dp"
         android:layout_height="56dp"

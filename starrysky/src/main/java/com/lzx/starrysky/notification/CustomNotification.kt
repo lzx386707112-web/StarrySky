@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.support.v4.media.session.MediaSessionCompat
 import android.widget.RemoteViews
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import com.lzx.starrysky.R
 import com.lzx.starrysky.SongInfo
@@ -75,7 +76,6 @@ import com.lzx.starrysky.notification.imageloader.ImageLoaderCallBack
 import com.lzx.starrysky.notification.utils.NotificationColorUtils
 import com.lzx.starrysky.notification.utils.NotificationUtils
 import com.lzx.starrysky.playback.Playback
-import com.lzx.starrysky.service.MusicService
 import com.lzx.starrysky.utils.TimerTaskManager
 import com.lzx.starrysky.utils.formatTime
 import com.lzx.starrysky.utils.getPendingIntent
@@ -139,7 +139,7 @@ class CustomNotification constructor(
         lyricsIntent = config.lyricsIntent ?: ACTION_LYRICS.getPendingIntent()
         downloadIntent = config.downloadIntent ?: ACTION_DOWNLOAD.getPendingIntent()
         closeIntent = config.closeIntent ?: ACTION_CLOSE.getPendingIntent()
-        notificationManager.cancelAll()
+        notificationManager?.cancel(NOTIFICATION_ID)
     }
 
     override fun onPlaybackStateChanged(
@@ -195,7 +195,7 @@ class CustomNotification constructor(
         if (nowTime - lastClickTime <= TIME_INTERVAL) {
             return
         }
-        val player = (context as MusicService).binder?.player
+        val player = context.playbackFromMusicService() ?: return
         when (action) {
             ACTION_PAUSE -> pauseMusic(player)
             ACTION_PLAY -> restoreMusic(player)
@@ -217,7 +217,7 @@ class CustomNotification constructor(
         if (songInfo == null) {
             return null
         }
-        val smallIcon = if (config.smallIconRes != -1) config.smallIconRes else R.drawable.ic_notification
+        val smallIcon = smallIconRes()
         //适配8.0
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationUtils.createNotificationChannel(context, notificationManager!!)
@@ -259,7 +259,7 @@ class CustomNotification constructor(
 
     private fun setNotificationPlaybackState(builder: NotificationCompat.Builder) {
         if (!mStarted) {
-            (context as MusicService).stopForeground(true)
+            context.musicServiceOrNull()?.stopForegroundCompat(true)
         }
         builder.setOngoing(playbackState == PlaybackStage.PLAYING)
     }
@@ -357,30 +357,33 @@ class CustomNotification constructor(
         notificationManager?.notify(NOTIFICATION_ID, notification)
 
         if (!fetchArtUrl.isNullOrEmpty()) {
-            fetchBitmapFromURLAsync(fetchArtUrl, notification)
+            fetchBitmapFromURLAsync(fetchArtUrl)
         }
     }
 
     /**
      * 加载封面
      */
-    private fun fetchBitmapFromURLAsync(fetchArtUrl: String, notification: Notification?) {
+    private fun fetchBitmapFromURLAsync(fetchArtUrl: String) {
+        val captureSongId = songInfo?.songId
+        val captureUrl = fetchArtUrl
         StarrySky.getImageLoader()?.load(fetchArtUrl, object : ImageLoaderCallBack {
             override fun onBitmapLoaded(bitmap: Bitmap?) {
-                bitmap?.let {
-                    remoteView?.setImageViewBitmap(ID_IMG_NOTIFY_ICON.getResId(), it)
-                    bigRemoteView?.setImageViewBitmap(ID_IMG_NOTIFY_ICON.getResId(), it)
-                    //https://github.com/EspoirX/StarrySky/issues/188
-                    if (mNotification != null) {
-                        notificationManager?.notify(NOTIFICATION_ID, notification)
-                    }
-                }
+                if (bitmap == null || !mStarted) return
+                val si = songInfo
+                if (si == null || si.songId != captureSongId || si.songCover != captureUrl) return
+                si.coverBitmap = bitmap
+                val n = mNotification ?: return
+                updateRemoteViewUI(n, songInfo, smallIconRes())
             }
 
             override fun onBitmapFailed(errorDrawable: Drawable?) {
             }
         })
     }
+
+    private fun smallIconRes(): Int =
+        if (config.smallIconRes != -1) config.smallIconRes else R.drawable.ic_notification
 
     /**
      * 下一首按钮样式
@@ -415,25 +418,33 @@ class CustomNotification constructor(
             createNotification()
         }
         if (!mStarted) {
-            // The notification must be updated after setting started to true
-            val notification = createNotification()
-            if (notification != null) {
-                val filter = IntentFilter()
-                filter.addAction(ACTION_NEXT)
-                filter.addAction(ACTION_PAUSE)
-                filter.addAction(ACTION_PLAY)
-                filter.addAction(ACTION_PREV)
-                filter.addAction(ACTION_PLAY_OR_PAUSE)
-                filter.addAction(ACTION_CLOSE)
+            val service = context.musicServiceOrNull() ?: return
+            val notification = createNotification() ?: return
+            val filter = IntentFilter()
+            filter.addAction(ACTION_NEXT)
+            filter.addAction(ACTION_PAUSE)
+            filter.addAction(ACTION_PLAY)
+            filter.addAction(ACTION_PREV)
+            filter.addAction(ACTION_PLAY_OR_PAUSE)
+            filter.addAction(ACTION_CLOSE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.registerReceiver(
+                    context,
+                    this,
+                    filter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+                )
+            } else {
+                @Suppress("DEPRECATION")
                 context.registerReceiver(this, filter)
-                (context as MusicService).customStartForeground(NOTIFICATION_ID, notification)
-                mStarted = true
             }
+            service.customStartForeground(NOTIFICATION_ID, notification)
+            mStarted = true
         }
         if (timerTaskManager == null && ID_PROGRESSBAR.getResId() != 0) {
             timerTaskManager = TimerTaskManager()
             timerTaskManager?.setUpdateProgressTask {
-                val player = (context as MusicService).binder?.player
+                val player = context.playbackFromMusicService()
                 val position = player?.currentStreamPosition().orDef().toInt()
                 val duration = player?.duration().orDef().toInt()
                 mNotification?.let {
@@ -445,7 +456,7 @@ class CustomNotification constructor(
                 }
             }
         }
-        val player = (context as MusicService).binder?.player
+        val player = context.playbackFromMusicService()
         if (player?.isPlaying() == true && timerTaskManager?.isRunning() == false && ID_PROGRESSBAR.getResId() != 0) {
             timerTaskManager?.startToUpdateProgress()
         }
@@ -460,7 +471,7 @@ class CustomNotification constructor(
             } catch (ex: IllegalArgumentException) {
                 ex.printStackTrace()
             }
-            (context as MusicService).stopForeground(true)
+            context.musicServiceOrNull()?.stopForegroundCompat(true)
         }
         if (ID_PROGRESSBAR.getResId() != 0) {
             timerTaskManager?.removeUpdateProgressTask()

@@ -20,25 +20,48 @@ import com.lzx.starrysky.notification.imageloader.DefaultImageLoader
 import com.lzx.starrysky.notification.imageloader.ImageLoader
 import com.lzx.starrysky.notification.imageloader.ImageLoaderStrategy
 import com.lzx.starrysky.playback.Playback
+import com.lzx.starrysky.service.MusicPlaybackHost
+import com.lzx.starrysky.service.MusicRuntimeFactory
 import com.lzx.starrysky.service.MusicService
-import com.lzx.starrysky.service.MusicServiceBinder
 import com.lzx.starrysky.utils.KtPreferences
 import com.lzx.starrysky.utils.StarrySkyConstant
 import com.lzx.starrysky.utils.isMainProcess
 import java.util.WeakHashMap
 
+/**
+ * StarrySky 初始化与全局配置入口。
+ *
+ * ### 配置方式
+ * - **结构化（推荐）**：使用 [init] 的 lambda 重载，在 [settings] 上按 `service` / `notification` / `cache` 等分组编写；
+ *   与链式 `setXxx()` 修改的是同一套 [StarrySkyInstallSettings]。
+ * - **链式**：`init(app).setOpenCache(true)...apply()`，适合 Java 或简短场景。
+ *
+ * ### 运行时权限与隐私合规
+ * 本库在 manifest 中合并的 `POST_NOTIFICATIONS`、`BLUETOOTH_CONNECT` 等仅表示可选能力所需声明，
+ * **不会在 SDK 内部主动发起运行时权限申请**。宿主应在用户同意隐私政策（或单独说明）后，
+ * 在合适业务时机自行调用系统权限流程；可用 [com.lzx.starrysky.utils.StarrySkyPermissionChecks] 判断授权状态。
+ */
 object StarrySkyInstall {
 
-    internal var isDebug = true
+    private var _settings = StarrySkyInstallSettings()
+
+    /**
+     * 当前安装配置（分组字段 + 便捷 `service { }` DSL）。
+     * [release] 之后会重置为默认实例，请勿长期缓存引用参与业务逻辑。
+     */
+    val settings: StarrySkyInstallSettings
+        get() = _settings
+
+    internal var isDebug
+        get() = _settings.isDebug
+        set(value) {
+            _settings.isDebug = value
+        }
+
     internal var globalContext: Application? = null
     private var retryLineService = 0
 
-    //服务相关
-    private var isConnectionService = true
-    private var isStartService = false
-    private var onlyStartService = true
-    private var connection: ServiceConnection? = null
-
+    // 服务运行时
     @Volatile
     private var isBindService = false
     private val connectionMap = WeakHashMap<Context, ServiceConnection>()
@@ -46,47 +69,94 @@ object StarrySkyInstall {
     @SuppressLint("StaticFieldLeak")
     private var serviceToken: ServiceToken? = null
 
-    //通知栏相关
-    internal var isOpenNotification: Boolean = false
-    internal var notificationType: Int = INotification.SYSTEM_NOTIFICATION
-    internal var notificationConfig: NotificationConfig? = null
-    internal var notificationFactory: NotificationManager.NotificationFactory? = null
-
-    //图片加载相关
-    private var imageStrategy: ImageLoaderStrategy? = null
-
     @SuppressLint("StaticFieldLeak")
     internal var imageLoader: ImageLoader? = null
 
-    //全局拦截器
-    internal val interceptors = mutableListOf<Pair<StarrySkyInterceptor, String>>()
-
+    /**
+     * 全局播放运行时（Strategy 的统一出口）：Service 路径为 [MusicServiceBinder]，本地路径为 [MusicPlaybackFacade]。
+     */
     @SuppressLint("StaticFieldLeak")
-    internal var binder: MusicServiceBinder? = null
+    internal var playbackHost: MusicPlaybackHost? = null
 
-    //播放器缓存
-    internal var isOpenCache = false
-    internal var cacheDestFileDir: String = ""
-    internal var cacheMaxBytes: Long = 512 * 1024 * 1024
-    internal var playerCache: ICache? = null
-
-    //是否自动焦点管理
-    internal var isAutoManagerFocus: Boolean = true
-
-    //播放器
-    internal var playback: Playback? = null
-
-    //callback
+    // callback
     @SuppressLint("StaticFieldLeak")
     internal var appLifecycleCallback = AppLifecycleCallback()
 
-    //全局状态监听
-    internal var globalPlaybackStageListener: GlobalPlaybackStageListener? = null
-
-    //音效相关
+    // 音效相关
     internal var voiceEffect = VoiceEffect()
 
-    private var isStartForegroundByWorkManager = false
+    // region 与历史链式 API / 内部读取兼容的委托属性
+
+    internal val interceptors: MutableList<Pair<StarrySkyInterceptor, String>>
+        get() = _settings.interceptors
+
+    internal var isOpenNotification: Boolean
+        get() = _settings.notification.isOpen
+        set(value) {
+            _settings.notification.isOpen = value
+        }
+
+    internal var notificationType: Int
+        get() = _settings.notification.type
+        set(value) {
+            _settings.notification.type = value
+        }
+
+    internal var notificationConfig: NotificationConfig?
+        get() = _settings.notification.config
+        set(value) {
+            _settings.notification.config = value
+        }
+
+    internal var notificationFactory: NotificationManager.NotificationFactory?
+        get() = _settings.notification.factory
+        set(value) {
+            _settings.notification.factory = value
+        }
+
+    internal var isOpenCache: Boolean
+        get() = _settings.cache.isOpen
+        set(value) {
+            _settings.cache.isOpen = value
+        }
+
+    internal var cacheDestFileDir: String
+        get() = _settings.cache.destFileDir
+        set(value) {
+            _settings.cache.destFileDir = value
+        }
+
+    internal var cacheMaxBytes: Long
+        get() = _settings.cache.maxBytes
+        set(value) {
+            _settings.cache.maxBytes = value
+        }
+
+    internal var playerCache: ICache?
+        get() = _settings.cache.impl
+        set(value) {
+            _settings.cache.impl = value
+        }
+
+    internal var isAutoManagerFocus: Boolean
+        get() = _settings.isAutoManagerFocus
+        set(value) {
+            _settings.isAutoManagerFocus = value
+        }
+
+    internal var playback: Playback?
+        get() = _settings.playback
+        set(value) {
+            _settings.playback = value
+        }
+
+    internal var globalPlaybackStageListener: GlobalPlaybackStageListener?
+        get() = _settings.globalPlaybackStageListener
+        set(value) {
+            _settings.globalPlaybackStageListener = value
+        }
+
+    // endregion
 
     @JvmStatic
     fun init(application: Application) = apply {
@@ -94,52 +164,65 @@ object StarrySkyInstall {
     }
 
     /**
-     * 是否debug，区别就是是否打印一些内部 log
+     * 使用分组配置初始化 [globalContext]，并在 lambda 内完成 [settings] 填写；之后仍需调用 [apply]。
      */
-    fun setDebug(debug: Boolean) = apply {
-        isDebug = debug
+    @JvmStatic
+    fun init(application: Application, configure: StarrySkyInstallSettings.() -> Unit): StarrySkyInstall {
+        globalContext = application
+        _settings.configure()
+        return StarrySkyInstall
     }
 
     /**
-     * 是否需要后台服务，默认true，区别是播放器能不能运行在后台
+     * 是否debug，区别就是是否打印一些内部 log
+     */
+    fun setDebug(debug: Boolean) = apply {
+        _settings.isDebug = debug
+    }
+
+    /**
+     * 是否需要后台服务，默认 true，区别是播放器能不能运行在后台。
+     *
+     * 与 [apply] 中的 Strategy 分支对应：[true] 时走 bindService，由 [MusicServiceBinder] 承载；
+     * [false] 时由 [MusicRuntimeFactory.createInProcessHost] 在进程内创建 [MusicPlaybackFacade]。
      */
     fun connService(isConnectionService: Boolean) = apply {
-        this.isConnectionService = isConnectionService
+        _settings.service.isConnectionService = isConnectionService
     }
 
     /**
      * 是否需要 startService，默认false，只有 bindService
      */
     fun isStartService(isStartService: Boolean) = apply {
-        this.isStartService = isStartService
+        _settings.service.isStartService = isStartService
     }
 
     /**
      * 是否只是 startService 而不需要 startForegroundService，默认true
      */
     fun onlyStartService(onlyStartService: Boolean) = apply {
-        this.onlyStartService = onlyStartService
+        _settings.service.onlyStartService = onlyStartService
     }
 
     /**
      * 连接服务回调，可通过这个监听查看 Service 是否连接成功
      */
     fun connServiceListener(connection: ServiceConnection?) = apply {
-        this.connection = connection
+        _settings.service.connection = connection
     }
 
     /**
      * 添加全局拦截器
      */
     fun addInterceptor(interceptor: StarrySkyInterceptor, thread: String = InterceptorThread.UI) = apply {
-        interceptors += Pair(interceptor, thread)
+        _settings.interceptors += Pair(interceptor, thread)
     }
 
     /**
      * 通知栏开关，打开则显示通知栏，关闭则不显示
      */
     fun setNotificationSwitch(isOpenNotification: Boolean) = apply {
-        this.isOpenNotification = isOpenNotification
+        _settings.notification.isOpen = isOpenNotification
     }
 
     /**
@@ -149,84 +232,84 @@ object StarrySkyInstall {
      * 默认系统通知栏
      */
     fun setNotificationType(notificationType: Int) = apply {
-        this.notificationType = notificationType
+        _settings.notification.type = notificationType
     }
 
     /**
      * 通知栏其他配置
      */
     fun setNotificationConfig(config: NotificationConfig) = apply {
-        this.notificationConfig = config
+        _settings.notification.config = config
     }
 
     /**
      * 自定义通知栏，可参考 NotificationManager 内部的两个默认实现
      */
     fun setNotificationFactory(factory: NotificationManager.NotificationFactory) = apply {
-        this.notificationFactory = factory
+        _settings.notification.factory = factory
     }
 
     /**
      * 自定义图片加载
      */
     fun setImageLoader(loader: ImageLoaderStrategy) = apply {
-        this.imageStrategy = loader
+        _settings.image.loaderStrategy = loader
     }
 
     /**
      * 是否开启缓存功能
      */
     fun setOpenCache(open: Boolean) = apply {
-        isOpenCache = open
+        _settings.cache.isOpen = open
     }
 
     /**
      * 自定义缓存实现
      */
     fun setCache(cache: ICache) = apply {
-        this.playerCache = cache
+        _settings.cache.impl = cache
     }
 
     /**
      * 设置缓存路径
      */
     fun setCacheDestFileDir(cacheDestFileDir: String) = apply {
-        this.cacheDestFileDir = cacheDestFileDir
+        _settings.cache.destFileDir = cacheDestFileDir
     }
 
     /**
      * 设置最大缓存大小
      */
     fun setCacheMaxBytes(cacheMaxBytes: Long) = apply {
-        this.cacheMaxBytes = cacheMaxBytes
+        _settings.cache.maxBytes = cacheMaxBytes
     }
 
     /**
      * 是否自动焦点管理
      */
     fun setAutoManagerFocus(isAutoManagerFocus: Boolean) = apply {
-        this.isAutoManagerFocus = isAutoManagerFocus
+        _settings.isAutoManagerFocus = isAutoManagerFocus
     }
 
     /**
      * 自定义播放器实现
      */
     fun setPlayback(playback: Playback) = apply {
-        this.playback = playback
+        _settings.playback = playback
     }
 
     /**
      * 设置全局状态监听器
      */
     fun setGlobalPlaybackStageListener(listener: GlobalPlaybackStageListener) = apply {
-        this.globalPlaybackStageListener = listener
+        _settings.globalPlaybackStageListener = listener
     }
 
     /**
      * 是否使用 WorkManager
      */
     fun startForegroundByWorkManager(value: Boolean) = apply {
-        isStartForegroundByWorkManager = value
+        _settings.service.startForegroundByWorkManager = value
     }
 
     /**
@@ -236,53 +319,59 @@ object StarrySkyInstall {
         if (globalContext == null) {
             throw NullPointerException("context is null")
         }
-        if (!globalContext!!.isMainProcess()) return //不是主进程 return
+        if (!globalContext!!.isMainProcess()) return // 不是主进程 return
 
         globalContext!!.registerActivityLifecycleCallbacks(appLifecycleCallback)
 
         KtPreferences.init(globalContext)
-        StarrySkyConstant.KEY_CACHE_SWITCH = isOpenCache //记录缓存开关状态
+        StarrySkyConstant.KEY_CACHE_SWITCH = isOpenCache // 记录缓存开关状态
 
         imageLoader = ImageLoader(globalContext)
-        if (imageStrategy == null) {
+        val strategy = _settings.image.loaderStrategy
+        if (strategy == null) {
             imageLoader?.init(DefaultImageLoader())
         } else {
-            imageLoader?.init(imageStrategy!!)
+            imageLoader?.init(strategy)
         }
 
-        if (isConnectionService) {
+        if (_settings.service.isConnectionService) {
+            // Service 路径：运行时由 onServiceConnected 注入，类型为 IBinder 侧的 [MusicServiceBinder]（实现 [MusicPlaybackHost]）
             bindService()
         } else {
-            binder = MusicServiceBinder(globalContext!!)
-            binder?.startForegroundByWorkManager(isStartForegroundByWorkManager)
-            binder?.setPlayerCache(playerCache, cacheDestFileDir, cacheMaxBytes)
-            binder?.setAutoManagerFocus(isAutoManagerFocus)
-            binder?.initPlaybackManager(playback)
+            // 进程内路径：不持有 Binder，仅使用 [MusicPlaybackFacade]；定时关闭无 Service 实现（见 [TimedOffHandlerFactory]）
+            playbackHost = MusicRuntimeFactory.createInProcessHost(globalContext!!)
+            playbackHost?.startForegroundByWorkManager(_settings.service.startForegroundByWorkManager)
+            playbackHost?.setPlayerCache(playerCache, cacheDestFileDir, cacheMaxBytes)
+            playbackHost?.setAutoManagerFocus(isAutoManagerFocus)
+            playbackHost?.initPlaybackManager(playback)
         }
     }
 
     private val serviceConnection = object : ServiceConnection {
+        /**
+         * 连接成功后把 Framework 返回的 [IBinder] 转为 [MusicPlaybackHost]，并在此完成与 [apply] 中「本地分支」一致的装配顺序。
+         */
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             try {
-                if (service is MusicServiceBinder) {
+                if (service is MusicPlaybackHost) {
                     retryLineService = 0
-                    binder = service
-                    binder?.startForegroundByWorkManager(isStartForegroundByWorkManager)
-                    binder?.setNotificationConfig(
+                    playbackHost = service
+                    playbackHost?.startForegroundByWorkManager(_settings.service.startForegroundByWorkManager)
+                    playbackHost?.setNotificationConfig(
                         isOpenNotification,
                         notificationType,
                         notificationConfig,
                         notificationFactory
                     )
-                    binder?.setPlayerCache(
+                    playbackHost?.setPlayerCache(
                         playerCache,
                         cacheDestFileDir,
                         cacheMaxBytes
                     )
-                    binder?.setAutoManagerFocus(isAutoManagerFocus)
-                    binder?.initPlaybackManager(playback)
+                    playbackHost?.setAutoManagerFocus(isAutoManagerFocus)
+                    playbackHost?.initPlaybackManager(playback)
                     isBindService = true
-                    connection?.onServiceConnected(name, service)
+                    _settings.service.connection?.onServiceConnected(name, service)
                 }
             } catch (ex: Exception) {
                 ex.printStackTrace()
@@ -291,7 +380,7 @@ object StarrySkyInstall {
 
         override fun onServiceDisconnected(name: ComponentName?) {
             isBindService = false
-            connection?.onServiceDisconnected(name)
+            _settings.service.connection?.onServiceDisconnected(name)
             if (retryLineService < 3) {
                 retryLineService++
                 bindService() // 断开后自动再 bindService
@@ -308,12 +397,12 @@ object StarrySkyInstall {
             if (isBindService || globalContext == null) return
             val contextWrapper = ContextWrapper(globalContext)
             val intent = Intent(contextWrapper, MusicService::class.java)
-            if (isStartService) {
+            if (_settings.service.isStartService) {
                 if (globalContext!!.applicationInfo.targetSdkVersion >= 26 && Build.VERSION.SDK_INT >= 26) {
                     try {
                         contextWrapper.startService(intent)
                     } catch (ex: Exception) {
-                        if (!onlyStartService) {
+                        if (!_settings.service.onlyStartService) {
                             intent.putExtra("flag_must_to_show_notification", true)
                             contextWrapper.startForegroundService(intent)
                         }
@@ -346,13 +435,13 @@ object StarrySkyInstall {
             val conn = connectionMap.getOrDefault(contextWrapper, null)
             conn?.let {
                 contextWrapper?.unbindService(conn)
-                if (isStartService) {
+                if (_settings.service.isStartService) {
                     val intent = Intent(contextWrapper, MusicService::class.java)
                     contextWrapper?.stopService(intent)
                 }
                 isBindService = false
                 if (connectionMap.isEmpty()) {
-                    binder = null
+                    playbackHost = null
                 }
             }
         } catch (ex: Exception) {
@@ -366,18 +455,12 @@ object StarrySkyInstall {
     fun release() {
         globalContext?.unregisterActivityLifecycleCallbacks(appLifecycleCallback)
         unBindService()
-        notificationConfig = null
-        notificationFactory = null
-        imageStrategy = null
         imageLoader = null
-        playerCache = null
-        playback = null
-        connection = null
+        playerCache?.release()
         serviceToken = null
-        binder = null
+        playbackHost = null
         globalContext = null
-        globalPlaybackStageListener = null
-        interceptors.clear()
         connectionMap.clear()
+        _settings = StarrySkyInstallSettings()
     }
 }

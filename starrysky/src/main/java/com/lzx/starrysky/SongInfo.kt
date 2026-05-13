@@ -2,9 +2,9 @@ package com.lzx.starrysky
 
 import android.graphics.Bitmap
 import android.os.Parcelable
-import com.lzx.starrysky.utils.md5
-import kotlinx.android.parcel.IgnoredOnParcel
-import kotlinx.android.parcel.Parcelize
+import com.lzx.starrysky.utils.MD5
+import kotlinx.parcelize.IgnoredOnParcel
+import kotlinx.parcelize.Parcelize
 
 /**
  * 面向用户的音频信息
@@ -24,7 +24,7 @@ class SongInfo(
     companion object {
         @JvmStatic
         fun create(url: String): SongInfo = SongInfo().apply {
-            songId = url.md5()
+            songId = MD5.hexdigest(url).orEmpty().ifEmpty { url }
             songUrl = url
         }
 
@@ -45,7 +45,6 @@ class SongInfo(
 
     override fun clone(): Any {
         var obj: Any? = null
-        //调用Object类的clone方法，返回一个Object实例
         try {
             obj = super.clone()
         } catch (e: CloneNotSupportedException) {

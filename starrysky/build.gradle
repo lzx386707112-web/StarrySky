@@ -1,20 +1,22 @@
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
-//apply plugin: 'com.novoda.bintray-release'
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.parcelize'
+}
 
 android {
-    compileSdkVersion 31
+    namespace 'com.lzx.starrysky'
+    compileSdk 34
 
     defaultConfig {
-        minSdkVersion 16
-        targetSdkVersion 31
+        minSdk 21
+        targetSdk 34
         versionCode 263
         versionName "2.6.3"
 
         compileOptions {
-            sourceCompatibility JavaVersion.VERSION_1_8
-            targetCompatibility JavaVersion.VERSION_1_8
+            sourceCompatibility JavaVersion.VERSION_17
+            targetCompatibility JavaVersion.VERSION_17
         }
     }
 
@@ -26,34 +28,34 @@ android {
         }
     }
 
-    lintOptions {
+    lint {
         abortOnError false
     }
 
-    androidExtensions {
-        experimental = true
-    }
-
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
+        // Media3 大量 DataSource / MediaSource / ExoPlayer 扩展 API 标有 @UnstableApi，模块级 opt-in 一次即可
+        freeCompilerArgs += ["-opt-in=androidx.media3.common.util.UnstableApi"]
     }
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    //noinspection GradleCompatible
-    implementation 'androidx.appcompat:appcompat:1.2.0'
-    implementation 'androidx.work:work-runtime-ktx:2.7.1'
-    api "com.google.android.exoplayer:exoplayer-core:2.14.1"
-    api "com.google.android.exoplayer:extension-mediasession:2.14.1"
-    compileOnly ("com.google.android.exoplayer:exoplayer-dash:2.14.1")
-    compileOnly ("com.google.android.exoplayer:exoplayer-hls:2.14.1")
-    compileOnly ("com.google.android.exoplayer:exoplayer-smoothstreaming:2.14.1")
-    compileOnly ("com.google.android.exoplayer:extension-rtmp:2.14.1")
-    compileOnly ("com.google.android.exoplayer:exoplayer-rtsp:2.14.1")
-    compileOnly ("com.github.bumptech.glide:glide:4.11.0")
+
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.media:media:1.7.0'
+    implementation 'androidx.work:work-runtime-ktx:2.9.0'
+
+    def m3 = rootProject.ext.media3_version
+    api "androidx.media3:media3-exoplayer:$m3"
+    implementation "androidx.media3:media3-exoplayer-dash:$m3"
+    implementation "androidx.media3:media3-exoplayer-hls:$m3"
+    implementation "androidx.media3:media3-exoplayer-smoothstreaming:$m3"
+    implementation "androidx.media3:media3-exoplayer-rtsp:$m3"
+    implementation "androidx.media3:media3-datasource-rtmp:$m3"
+    implementation "androidx.media3:media3-database:$m3"
+    compileOnly 'com.github.bumptech.glide:glide:4.16.0'
+
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-}
-repositories {
-    mavenCentral()
+    api "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutines_version"
 }

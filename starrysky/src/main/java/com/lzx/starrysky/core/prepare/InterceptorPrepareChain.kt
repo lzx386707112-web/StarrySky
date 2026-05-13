@@ -1,12 +1,22 @@
-package com.lzx.starrysky.intercept
+package com.lzx.starrysky.core.prepare
 
-import android.os.AsyncTask
 import com.lzx.starrysky.SongInfo
-import com.lzx.starrysky.utils.MainLooper
+import com.lzx.starrysky.intercept.InterceptCallback
+import com.lzx.starrysky.intercept.InterceptorThread
+import com.lzx.starrysky.intercept.StarrySkyInterceptor
+import com.lzx.starrysky.runtime.PlayerScheduler
 
-class InterceptorService {
+/**
+ * 播放前拦截链：与旧 [com.lzx.starrysky.intercept.InterceptorService] 行为一致，
+ * 通过 [PlayerScheduler] 调度 UI / IO，避免使用已废弃的 AsyncTask。
+ *
+ * 后续可扩展为通用 [PrepareStage] 管道，无需改动调用方 [PlaybackManager]。
+ */
+class InterceptorPrepareChain(
+    private val scheduler: PlayerScheduler
+) {
 
-    private var interceptors = mutableListOf<Pair<StarrySkyInterceptor, String>>()
+    private val interceptors = mutableListOf<Pair<StarrySkyInterceptor, String>>()
 
     fun attachInterceptors(interceptors: MutableList<Pair<StarrySkyInterceptor, String>>) {
         this.interceptors.clear()
@@ -14,14 +24,14 @@ class InterceptorService {
     }
 
     fun handlerInterceptor(songInfo: SongInfo?, callback: InterceptCallback?) {
-        if (interceptors.isNullOrEmpty()) {
+        if (interceptors.isEmpty()) {
             callback?.onNext(songInfo)
-        } else {
-            runCatching {
-                doInterceptor(0, songInfo, callback)
-            }.onFailure {
-                callback?.onInterrupt(it.message)
-            }
+            return
+        }
+        runCatching {
+            doInterceptor(0, songInfo, callback)
+        }.onFailure {
+            scheduler.runOnMain(Runnable { callback?.onInterrupt(it.message) })
         }
     }
 
@@ -31,18 +41,16 @@ class InterceptorService {
             val interceptor = pair.first
             val interceptThread = pair.second
             if (interceptThread == InterceptorThread.UI) {
-                MainLooper.instance.runOnUiThread {
+                scheduler.runOnMain(Runnable {
                     doInterceptImpl(interceptor, index, songInfo, callback)
-                }
+                })
             } else {
-                AsyncTask.THREAD_POOL_EXECUTOR.execute {
+                scheduler.runOnIo(Runnable {
                     doInterceptImpl(interceptor, index, songInfo, callback)
-                }
+                })
             }
         } else {
-            MainLooper.instance.runOnUiThread {
-                callback?.onNext(songInfo)
-            }
+            scheduler.runOnMain(Runnable { callback?.onNext(songInfo) })
         }
     }
 
@@ -58,9 +66,7 @@ class InterceptorService {
             }
 
             override fun onInterrupt(msg: String?) {
-                MainLooper.instance.runOnUiThread {
-                    callback?.onInterrupt(msg)
-                }
+                scheduler.runOnMain(Runnable { callback?.onInterrupt(msg) })
             }
         })
     }

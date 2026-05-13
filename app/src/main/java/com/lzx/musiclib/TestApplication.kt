@@ -9,7 +9,6 @@ import com.danikula.videocache.file.Md5FileNameGenerator
 import com.lzx.musiclib.viewmodel.MusicViewModel
 import com.lzx.starrysky.SongInfo
 import com.lzx.starrysky.StarrySkyInstall
-import com.lzx.starrysky.StarrySkyInstall.setOpenCache
 import com.lzx.starrysky.cache.ICache
 import com.lzx.starrysky.intercept.InterceptCallback
 import com.lzx.starrysky.intercept.InterceptorThread
@@ -52,20 +51,26 @@ open class TestApplication : Application() {
             }
             pendingIntentMode { NotificationConfig.MODE_BROADCAST }
         }
-        StarrySkyInstall.init(this)
-            .startForegroundByWorkManager(true)
-            .setOpenCache(true)
-            .setAutoManagerFocus(false)   //使用多实例的时候要关掉，不然会相互抢焦点
-            .setCacheDestFileDir("000StarrySkyCache/".toSdcardPath())
-            .setCacheMaxBytes(1024 * 1024 * 1024)  //设置缓存上限，默认 512 * 1024 * 1024
-            //.setCache(AndroidVideoCache(this))
-            .addInterceptor(PermissionInterceptor(this))
-            .addInterceptor(RequestSongInfoInterceptor(), InterceptorThread.IO)
-            .setImageLoader(GlideImageLoader())
-            .setNotificationSwitch(true)
-            .setNotificationType(INotification.CUSTOM_NOTIFICATION)
-            .setNotificationConfig(notificationConfig)
-            .apply()
+        StarrySkyInstall.init(this) {
+            service {
+                startForegroundByWorkManager = true
+            }
+            cache {
+                isOpen = true
+                destFileDir = "000StarrySkyCache/".toSdcardPath()
+                maxBytes = 1024L * 1024 * 1024 // 默认 512 * 1024 * 1024
+                // impl = AndroidVideoCache(this@TestApplication)
+            }
+            isAutoManagerFocus = false // 使用多实例的时候要关掉，不然会相互抢焦点
+            addInterceptor(PermissionInterceptor(this@TestApplication))
+            addInterceptor(RequestSongInfoInterceptor(), InterceptorThread.IO)
+            image { loaderStrategy = GlideImageLoader() }
+            notification {
+                isOpen = true
+                type = INotification.CUSTOM_NOTIFICATION
+                config = notificationConfig
+            }
+        }.apply()
     }
 
     /**
@@ -182,6 +187,15 @@ class AndroidVideoCache(private val context: Context) : ICache {
 
     override fun isCache(url: String): Boolean {
         return true
+    }
+
+    override fun release() {
+        try {
+            proxy?.shutdown()
+        } catch (_: Exception) {
+        }
+        proxy = null
+        cacheFile = null
     }
 
     private fun getProxy(songInfo: SongInfo?): HttpProxyCacheServer? {

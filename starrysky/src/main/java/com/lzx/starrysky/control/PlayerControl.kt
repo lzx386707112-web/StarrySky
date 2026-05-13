@@ -16,7 +16,8 @@ import com.lzx.starrysky.manager.PlaybackManager
 import com.lzx.starrysky.manager.PlaybackStage
 import com.lzx.starrysky.playback.FocusInfo
 import com.lzx.starrysky.queue.MediaSourceProvider
-import com.lzx.starrysky.service.MusicServiceBinder
+import com.lzx.starrysky.service.MusicPlaybackHost
+import com.lzx.starrysky.utils.MainLooper
 import com.lzx.starrysky.utils.StarrySkyConstant
 import com.lzx.starrysky.utils.TimerTaskManager
 import com.lzx.starrysky.utils.data
@@ -25,16 +26,43 @@ import com.lzx.starrysky.utils.isIndexPlayable
 import com.lzx.starrysky.utils.md5
 import com.lzx.starrysky.utils.orDef
 import com.lzx.starrysky.utils.title
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 
+/**
+ * 对外播放 API 门面；实现 [PlaybackEventsSink]，供 [PlaybackManager] 经 [PlaybackEngineCallbackBridge] 回传引擎状态。
+ *
+ * 播放阶段对外推荐订阅 [playbackStageFlow]（冷订阅可通过 replay 拿到最近一次状态）；[playbackState] 仍为 [MutableLiveData] 以兼容现有 `observe` 代码。
+ */
 class PlayerControl(
     appInterceptors: MutableList<Pair<StarrySkyInterceptor, String>>,
     private val globalPlaybackStageListener: GlobalPlaybackStageListener?,
-    private val binder: MusicServiceBinder?
-) {
+    private val playbackHost: MusicPlaybackHost?
+) : PlaybackEventsSink {
 
     private val focusChangeState = MutableLiveData<FocusInfo>()
     private val playbackState = MutableLiveData<PlaybackStage>()
+
+    /**
+     * 主线程上投递的播放阶段流：replay=1 便于新订阅方立即拿到当前阶段；与 [playbackState] 同源更新。
+     */
+    private val _playbackStageFlow = MutableSharedFlow<PlaybackStage>(
+        replay = 1,
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /**
+     * 音频焦点变化流；与 [focusChangeState] 同源更新（后者仍用 postValue 兼容后台线程回调）。
+     */
+    private val _focusChangeFlow = MutableSharedFlow<FocusInfo>(
+        replay = 1,
+        extraBufferCapacity = 16,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     private val playerEventListener = hashMapOf<String, OnPlayerEventListener>()
     private val progressListener = hashMapOf<String, OnPlayProgressListener>()
 
@@ -46,7 +74,8 @@ class PlayerControl(
     private val interceptors = mutableListOf<Pair<StarrySkyInterceptor, String>>() //局部拦截器，用完会自动清理
     private var isSkipMediaQueue = false
 
-    private val playbackManager = PlaybackManager(provider, appInterceptors, this, binder)
+    /** 协调层只依赖 [PlaybackEventsSink]，由本类作为 Sink 实现并接收引擎回调。 */
+    private val playbackManager = PlaybackManager(provider, appInterceptors, this, playbackHost)
 
     init {
         timerTaskManager = TimerTaskManager()
@@ -342,7 +371,7 @@ class PlayerControl(
      * 刷新随机列表
      */
     fun updateShuffleSongList() {
-        provider.updateShuffleSongList()
+        playbackManager.refreshShuffleOrder()
     }
 
     /**
@@ -372,7 +401,7 @@ class PlayerControl(
      */
     fun getNowPlayingIndex(): Int {
         val songId = getNowPlayingSongId()
-        return provider.getIndexById(songId)
+        return playbackManager.getPlaybackQueueIndex(songId)
     }
 
     /**
@@ -552,6 +581,16 @@ class PlayerControl(
     }
 
     /**
+     * 状态监听，[SharedFlow] 方式；推荐使用 `lifecycleScope.launch { repeatOnLifecycle { playbackStageFlow().collect { } } }` 等与生命周期绑定。
+     */
+    fun playbackStageFlow(): SharedFlow<PlaybackStage> = _playbackStageFlow.asSharedFlow()
+
+    /**
+     * 焦点变化，[SharedFlow] 方式；与 [focusStateChange] 二选一或组合使用均可。
+     */
+    fun focusChangeFlow(): SharedFlow<FocusInfo> = _focusChangeFlow.asSharedFlow()
+
+    /**
      * 焦点变化监听,LiveData 方式
      */
     fun focusStateChange(): MutableLiveData<FocusInfo> = focusChangeState
@@ -585,31 +624,35 @@ class PlayerControl(
         progressListener.remove(tag)
     }
 
-    fun onPlaybackStateUpdated(playbackStage: PlaybackStage) {
-        when (playbackStage.stage) {
-            PlaybackStage.PLAYING -> {
-                timerTaskManager?.startToUpdateProgress()
-                val effectSwitch = StarrySkyConstant.keyEffectSwitch
-                if (effectSwitch) {
-                    StarrySkyInstall.voiceEffect.attachAudioEffect(getAudioSessionId())
+    override fun onPlaybackStateUpdated(playbackStage: PlaybackStage) {
+        // 与 LiveData / 进度定时器一致，在主线程上合并处理，避免与 UI observe 竞态。
+        MainLooper.instance.runOnUiThread {
+            when (playbackStage.stage) {
+                PlaybackStage.PLAYING -> {
+                    timerTaskManager?.startToUpdateProgress()
+                    val effectSwitch = StarrySkyConstant.keyEffectSwitch
+                    if (effectSwitch) {
+                        StarrySkyInstall.voiceEffect.attachAudioEffect(getAudioSessionId())
+                    }
+                }
+                PlaybackStage.PAUSE,
+                PlaybackStage.ERROR,
+                PlaybackStage.IDLE -> {
+                    timerTaskManager?.stopToUpdateProgress()
+                    isRunningTimeTask = false
                 }
             }
-            PlaybackStage.PAUSE,
-            PlaybackStage.ERROR,
-            PlaybackStage.IDLE -> {
-                timerTaskManager?.stopToUpdateProgress()
-                isRunningTimeTask = false
+            _playbackStageFlow.tryEmit(playbackStage)
+            globalPlaybackStageListener?.onPlaybackStageChange(playbackStage)
+            playbackState.value = playbackStage
+            playerEventListener.forEach {
+                it.value.onPlaybackStageChange(playbackStage)
             }
-        }
-        globalPlaybackStageListener?.onPlaybackStageChange(playbackStage)
-        //postValue 可能会丢数据，这里保证主线程调用
-        playbackState.value = playbackStage
-        playerEventListener.forEach {
-            it.value.onPlaybackStageChange(playbackStage)
         }
     }
 
-    fun onFocusStateChange(info: FocusInfo) {
+    override fun onFocusStateChange(info: FocusInfo) {
+        _focusChangeFlow.tryEmit(info)
         focusChangeState.postValue(info)
     }
 
@@ -619,7 +662,7 @@ class PlayerControl(
     }
 
     fun release() {
-        timerTaskManager?.stopToUpdateProgress()
+        timerTaskManager?.removeUpdateProgressTask()
         isRunningTimeTask = false
         timerTaskManager = null
     }
