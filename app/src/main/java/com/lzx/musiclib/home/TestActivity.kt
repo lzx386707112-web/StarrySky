@@ -26,17 +26,16 @@ open class TestActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTestBinding
 
-    val z =
-        "https://github.com/EspoirX/lzxTreasureBox/raw/master/%E5%91%A8%E6%9D%B0%E4%BC%A6-%E5%91%8A%E7%99%BD%E6%B0%94%E7%90%83.mp3"
-    val a = "https://github.com/EspoirX/lzxTreasureBox/raw/master/a.aac"
-    val b = "https://github.com/EspoirX/lzxTreasureBox/raw/master/b.aac"
-    val c = "https://github.com/EspoirX/lzxTreasureBox/raw/master/c.aac"
-    val d = "https://github.com/EspoirX/lzxTreasureBox/raw/master/d.aac"
-    val e = "https://github.com/EspoirX/lzxTreasureBox/raw/master/e.aac"
-    val f = "https://github.com/EspoirX/lzxTreasureBox/raw/master/f.aac"
-    val g = "https://github.com/EspoirX/lzxTreasureBox/raw/master/g.aac"
+    val z = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
+    val a = "https://storage.googleapis.com/exoplayer-test-media-0/Jazz_In_Paris.mp3"
+    val b = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+    val c = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+    val d = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+    val e = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+    val f = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"
+    val g = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3"
 
-    val test = "http://shunaier.oss-cn-beijing.aliyuncs.com/4h-test-img/system-c3dc731aa1dc4877a0e386fa8d0073f6-YT.aac"
+    val test = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
 
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,11 +111,11 @@ open class TestActivity : AppCompatActivity() {
             .setAutoManagerFocus(false)
         binding.playMusicByUrl.setOnClickListener {
 //            StarrySky.with().playMusicByUrl(test)
-            player.with().playMusicByUrl(test)
+            player.with().playMusicByUrl(a)
         }
         binding.playMusicByInfo.setOnClickListener {
 //            StarrySky.with().playMusicByInfo(SongInfo("a", a))
-            StarrySky.with().playMusicByInfo(SongInfo("a", "http://ting6.yymp3.net:82/new14/zhangyj/5.mp3"))
+            StarrySky.with().playMusicByInfo(SongInfo("a", a))
         }
         binding.playMusic.setOnClickListener {
             StarrySky.with().playMusic(songList, 0)

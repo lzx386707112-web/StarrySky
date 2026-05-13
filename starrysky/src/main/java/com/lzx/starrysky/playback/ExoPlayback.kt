@@ -4,6 +4,7 @@ package com.lzx.starrysky.playback
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -13,6 +14,7 @@ import androidx.media3.common.util.Util
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.rtmp.RtmpDataSource
@@ -139,13 +141,21 @@ class ExoPlayback(
 
         var source = songInfo.songUrl
         if (source.isEmpty()) {
-            callback?.onPlaybackError(currSongInfo, "播放 url 为空")
+            val msg = "播放 url 为空"
+            Log.e(TAG, msg + " songId=$mediaId")
+            callback?.onPlaybackError(currSongInfo, msg)
             return
         }
         source = source.replace(" ".toRegex(), "%20")
         val proxyUrl = cache?.getProxyUrl(source, songInfo)
         source = if (proxyUrl.isNullOrEmpty()) source else proxyUrl
         val uri = Uri.parse(source)
+        if ("http".equals(uri.scheme, ignoreCase = true)) {
+            Log.w(
+                TAG,
+                "Cleartext HTTP URL (blocked on many devices when targetSdk>=28 unless usesCleartextTraffic / networkSecurityConfig): $source"
+            )
+        }
 
         val needReload =
             mediaHasChanged || player == null || (sourceTypeErrorInfo.happenSourceError && !mediaHasChanged)
@@ -165,7 +175,9 @@ class ExoPlayback(
                 }
                 player?.prepare()
             }.onFailure { e ->
-                callback?.onPlaybackError(currSongInfo, "无法加载媒体: ${e.message ?: e.javaClass.simpleName}")
+                val msg = "无法加载媒体: ${e.message ?: e.javaClass.simpleName}"
+                Log.e(TAG, "$msg url=$source", e)
+                callback?.onPlaybackError(currSongInfo, msg)
                 return
             }
             updateManualAudioFocus(STATE_BUFFERING)
@@ -225,8 +237,8 @@ class ExoPlayback(
         val userAgent = Util.getUserAgent(context, "StarrySky")
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(userAgent)
-            .setConnectTimeoutMs(8000)
-            .setReadTimeoutMs(8000)
+            .setConnectTimeoutMs(20_000)
+            .setReadTimeoutMs(20_000)
             .setAllowCrossProtocolRedirects(true)
         val upstream = DefaultDataSource.Factory(context, httpDataSourceFactory)
         return if (cache?.isOpenCache() == true && cache is ExoCache) {
@@ -353,9 +365,9 @@ class ExoPlayback(
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            error.printStackTrace()
             hasError = true
-            val what = error.message ?: "errorCode=${error.errorCode}"
+            val detail = formatPlaybackException(currSongInfo, error)
+            Log.e(TAG, detail, error)
             val sourceLike = error.cause is java.io.IOException ||
                 error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ||
                 error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
@@ -371,7 +383,7 @@ class ExoPlayback(
                 sourceTypeErrorInfo.seekToPositionWhenError = sourceTypeErrorInfo.seekToPosition
                 sourceTypeErrorInfo.currPositionWhenError = currentStreamPosition()
             }
-            callback?.onPlaybackError(currSongInfo, "ExoPlayer error $what")
+            callback?.onPlaybackError(currSongInfo, detail)
         }
     }
 
@@ -381,6 +393,35 @@ class ExoPlayback(
         }
         callback?.onFocusStateChange(FocusInfo(currSongInfo, info.audioFocusState, info.playerCommand, info.volume))
     }
+
+    companion object {
+        private const val TAG = "StarrySky.ExoPlayback"
+    }
+}
+
+private fun formatPlaybackException(song: SongInfo?, error: PlaybackException): String {
+    val parts = ArrayList<String>(12)
+    parts.add("ExoPlaybackException")
+    parts.add("errorCode=${error.errorCode}")
+    parts.add("msg=${error.message}")
+    if (song != null) {
+        parts.add("songId=${song.songId}")
+        parts.add("songUrl=${song.songUrl}")
+    }
+    var depth = 0
+    var t: Throwable? = error
+    while (t != null && depth < 10) {
+        when (t) {
+            is InvalidResponseCodeException -> {
+                parts.add("httpStatus=${t.responseCode}")
+                parts.add("httpData=${t.dataSpec.uri}")
+            }
+        }
+        parts.add("cause[$depth]=${t.javaClass.name}: ${t.message}")
+        t = t.cause
+        depth++
+    }
+    return parts.joinToString(" | ")
 }
 
 /**

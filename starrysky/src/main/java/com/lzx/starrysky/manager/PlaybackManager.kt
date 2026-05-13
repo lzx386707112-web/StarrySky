@@ -2,6 +2,7 @@ package com.lzx.starrysky.manager
 
 
 import android.app.Activity
+import android.util.Log
 import com.lzx.starrysky.SongInfo
 import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.StarrySkyInstall
@@ -464,7 +465,13 @@ class PlaybackManager(
                 playbackHost?.startNotification(currPlayInfo, newState)
             }
         }
-        StarrySky.log("PlaybackStage = $newState")
+        if (newState == PlaybackStage.ERROR) {
+            Log.e(
+                "StarrySky.Playback",
+                "PlaybackStage=ERROR songUrl=${currPlayInfo?.songUrl} songId=${currPlayInfo?.songId} errorMsg=$errorMsg"
+            )
+        }
+        StarrySky.log("PlaybackStage = $newState" + if (!errorMsg.isNullOrEmpty()) " errorMsg=$errorMsg" else "")
         val playbackState = PlaybackStage()
         playbackState.errorMsg = errorMsg
         playbackState.songInfo = currPlayInfo

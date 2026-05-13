@@ -1,6 +1,5 @@
 package com.lzx.musiclib
 
-import android.Manifest
 import android.app.Application
 import android.content.Context
 import android.os.Bundle
@@ -18,10 +17,6 @@ import com.lzx.starrysky.notification.NotificationConfig
 import com.lzx.starrysky.notification.imageloader.GlideImageLoader
 import com.lzx.starrysky.utils.StarrySkyConstant
 import com.lzx.starrysky.utils.toSdcardPath
-import com.qw.soul.permission.SoulPermission
-import com.qw.soul.permission.bean.Permission
-import com.qw.soul.permission.bean.Permissions
-import com.qw.soul.permission.callbcak.CheckRequestPermissionsListener
 import com.tencent.bugly.crashreport.CrashReport
 import java.io.File
 
@@ -62,7 +57,6 @@ open class TestApplication : Application() {
                 // impl = AndroidVideoCache(this@TestApplication)
             }
             isAutoManagerFocus = false // 使用多实例的时候要关掉，不然会相互抢焦点
-            addInterceptor(PermissionInterceptor(this@TestApplication))
             addInterceptor(RequestSongInfoInterceptor(), InterceptorThread.IO)
             image { loaderStrategy = GlideImageLoader() }
             notification {
@@ -71,42 +65,6 @@ open class TestApplication : Application() {
                 config = notificationConfig
             }
         }.apply()
-    }
-
-    /**
-     * 权限申请拦截器
-     */
-    class PermissionInterceptor internal constructor(private val mContext: Context) : StarrySkyInterceptor() {
-        override fun process(songInfo: SongInfo?, callback: InterceptCallback) {
-            if (songInfo == null) {
-                callback.onInterrupt("SongInfo is null")
-                return
-            }
-            val hasPermission = SpConstant.HAS_PERMISSION
-            if (hasPermission) {
-                callback.onNext(songInfo)
-                return
-            }
-            SoulPermission.getInstance().checkAndRequestPermissions(Permissions.build(
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ),
-                object : CheckRequestPermissionsListener {
-                    override fun onAllPermissionOk(allPermissions: Array<Permission>) {
-                        SpConstant.HAS_PERMISSION = true
-                        callback.onNext(songInfo)
-                    }
-
-                    override fun onPermissionDenied(refusedPermissions: Array<Permission>) {
-                        SpConstant.HAS_PERMISSION = false
-                        callback.onInterrupt("没有权限，播放失败")
-                        mContext.showToast("没有权限，播放失败")
-                    }
-                })
-        }
-
-        override fun getTag(): String = "PermissionInterceptor"
     }
 
     /**
