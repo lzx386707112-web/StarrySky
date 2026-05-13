@@ -9,7 +9,7 @@ import com.lzx.musiclib.getSelfViewModel
 import com.lzx.musiclib.viewmodel.MusicViewModel
 import com.lzx.starrysky.SongInfo
 import com.lzx.starrysky.StarrySky
-import kotlinx.android.synthetic.main.fragment_card.recycleView
+import com.lzx.musiclib.databinding.FragmentCardBinding
 
 class DynamicFragment : BaseFragment() {
     companion object {
@@ -22,14 +22,18 @@ class DynamicFragment : BaseFragment() {
 
     override fun getResourceId(): Int = R.layout.fragment_card
 
+    private var _binding: FragmentCardBinding? = null
+    private val binding get() = _binding!!
+
     private var dynamicAdapter: DynamicAdapter? = null
     private var viewModel: MusicViewModel? = null
     private var type: String? = null
 
     override fun initView(view: View?) {
+        _binding = FragmentCardBinding.bind(view!!)
         type = arguments?.getString("type")
-        recycleView.layoutManager = LinearLayoutManager(activity)
-        recycleView.adapter = DynamicAdapter(context).also { dynamicAdapter = it }
+        binding.recycleView.layoutManager = LinearLayoutManager(activity)
+        binding.recycleView.adapter = DynamicAdapter(context).also { dynamicAdapter = it }
 
         viewModel = getSelfViewModel {
             dynamicLiveData.observe(this@DynamicFragment, {
@@ -58,5 +62,6 @@ class DynamicFragment : BaseFragment() {
     }
 
     override fun unInitView() {
+        _binding = null
     }
 }

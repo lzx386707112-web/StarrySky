@@ -8,20 +8,17 @@ import android.os.Bundle
 import android.view.animation.LinearInterpolator
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
-import com.lzx.musiclib.R
+import com.lzx.musiclib.databinding.ActiviityDynamicDetailBinding
 import com.lzx.musiclib.loadImage
 import com.lzx.starrysky.OnPlayProgressListener
 import com.lzx.starrysky.SongInfo
 import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.manager.PlaybackStage
 import com.lzx.starrysky.utils.formatTime
-import kotlinx.android.synthetic.main.activiity_dynamic_detail.cover
-import kotlinx.android.synthetic.main.activiity_dynamic_detail.progressText
-import kotlinx.android.synthetic.main.activiity_dynamic_detail.seekBar
-import kotlinx.android.synthetic.main.activiity_dynamic_detail.songName
-import kotlinx.android.synthetic.main.activiity_dynamic_detail.timeText
 
 class DynamicDetailActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActiviityDynamicDetailBinding
 
     private var from: String? = null
     private var songInfo: SongInfo? = null
@@ -29,7 +26,8 @@ class DynamicDetailActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activiity_dynamic_detail)
+        binding = ActiviityDynamicDetailBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         from = intent.getStringExtra("from")
         songInfo = intent.getParcelableExtra("songInfo")
@@ -38,14 +36,14 @@ class DynamicDetailActivity : AppCompatActivity() {
             StarrySky.closeNotification()
         }
 
-        cover.loadImage(songInfo?.songCover)
-        songName.text = songInfo?.songName
+        binding.cover.loadImage(songInfo?.songCover)
+        binding.songName.text = songInfo?.songName
 
-        rotationAnim = ObjectAnimator.ofFloat(cover, "rotation", 0f, 359f)
+        rotationAnim = ObjectAnimator.ofFloat(binding.cover, "rotation", 0f, 359f)
         rotationAnim?.interpolator = LinearInterpolator()
         rotationAnim?.duration = 20000
         rotationAnim?.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator?) {
+            override fun onAnimationEnd(animation: Animator) {
                 super.onAnimationEnd(animation)
                 rotationAnim?.start()
             }
@@ -63,16 +61,16 @@ class DynamicDetailActivity : AppCompatActivity() {
         StarrySky.with().setOnPlayProgressListener(object : OnPlayProgressListener {
             @SuppressLint("SetTextI18n")
             override fun onPlayProgress(currPos: Long, duration: Long) {
-                if (seekBar.max.toLong() != duration) {
-                    seekBar.max = duration.toInt()
+                if (binding.seekBar.max.toLong() != duration) {
+                    binding.seekBar.max = duration.toInt()
                 }
-                seekBar.progress = currPos.toInt()
-                progressText.text = currPos.formatTime()
-                timeText.text = " / " + duration.formatTime()
+                binding.seekBar.progress = currPos.toInt()
+                binding.progressText.text = currPos.formatTime()
+                binding.timeText.text = " / " + duration.formatTime()
             }
         })
         //进度SeekBar
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {}
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onStopTrackingTouch(seekBar: SeekBar) {

@@ -13,10 +13,12 @@ import com.lzx.musiclib.weight.ViewPagerLayoutManager
 import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.manager.PlaybackStage
 import com.lzx.starrysky.utils.orDef
-import kotlinx.android.synthetic.main.fragment_card.recycleView
+import com.lzx.musiclib.databinding.FragmentCardBinding
 
 class CardFragment : BaseFragment() {
     override fun getResourceId(): Int = R.layout.fragment_card
+    private var _binding: FragmentCardBinding? = null
+    private val binding get() = _binding!!
     private var viewModel: MusicViewModel? = null
 
     companion object {
@@ -36,6 +38,7 @@ class CardFragment : BaseFragment() {
     private var isVisibleToUser: Boolean = false
 
     override fun initView(view: View?) {
+        _binding = FragmentCardBinding.bind(view!!)
         cardType = arguments?.getString("cardType")
         cardName = arguments?.getString("cardName")
         viewModel = getSelfViewModel {
@@ -68,9 +71,9 @@ class CardFragment : BaseFragment() {
     private fun initRecycleView() {
         linearLayoutManager = ViewPagerLayoutManager(activity)
         linearLayoutManager?.recycleChildrenOnDetach = true
-        recycleView.layoutManager = linearLayoutManager
-        recycleView.addItemDecoration(GalleryItemDecoration())
-        recycleView.adapter = CardAdapter(activity).also { cardAdapter = it }
+        binding.recycleView.layoutManager = linearLayoutManager
+        binding.recycleView.addItemDecoration(GalleryItemDecoration())
+        binding.recycleView.adapter = CardAdapter(activity).also { cardAdapter = it }
         linearLayoutManager?.setOnViewPagerListener(object : OnViewPagerListener {
             override fun onInitComplete() {
                 val position = linearLayoutManager?.getCurrPosition().orDef()
@@ -102,5 +105,6 @@ class CardFragment : BaseFragment() {
     }
 
     override fun unInitView() {
+        _binding = null
     }
 }

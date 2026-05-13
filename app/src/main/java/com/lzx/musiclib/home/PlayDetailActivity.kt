@@ -22,6 +22,7 @@ import com.lzx.musiclib.adapter.notifyDataSetChanged
 import com.lzx.musiclib.adapter.removedData
 import com.lzx.musiclib.adapter.setText
 import com.lzx.musiclib.adapter.setup
+import com.lzx.musiclib.databinding.ActivityPlayDetailBinding
 import com.lzx.musiclib.effect.EffectActivity
 import com.lzx.musiclib.getSelfViewModel
 import com.lzx.musiclib.loadImage
@@ -35,25 +36,10 @@ import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.control.RepeatMode
 import com.lzx.starrysky.manager.PlaybackStage
 import com.lzx.starrysky.utils.formatTime
-import kotlinx.android.synthetic.main.activity_play_detail.btnNextSong
-import kotlinx.android.synthetic.main.activity_play_detail.btnPlayMode
-import kotlinx.android.synthetic.main.activity_play_detail.btnPlayState
-import kotlinx.android.synthetic.main.activity_play_detail.btnPreSong
-import kotlinx.android.synthetic.main.activity_play_detail.btnTime
-import kotlinx.android.synthetic.main.activity_play_detail.effect
-import kotlinx.android.synthetic.main.activity_play_detail.progressText
-import kotlinx.android.synthetic.main.activity_play_detail.seekBar
-import kotlinx.android.synthetic.main.activity_play_detail.seekBarSpeed
-import kotlinx.android.synthetic.main.activity_play_detail.seekBarVolume
-import kotlinx.android.synthetic.main.activity_play_detail.songCover
-import kotlinx.android.synthetic.main.activity_play_detail.songDesc
-import kotlinx.android.synthetic.main.activity_play_detail.songName
-import kotlinx.android.synthetic.main.activity_play_detail.timeText
-import kotlinx.android.synthetic.main.activity_play_detail.tvSpeed
-import kotlinx.android.synthetic.main.activity_play_detail.tvVolume
-
 
 class PlayDetailActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityPlayDetailBinding
 
     private var viewModel: MusicViewModel? = null
     private var songId: String? = ""
@@ -64,7 +50,8 @@ class PlayDetailActivity : AppCompatActivity() {
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_play_detail)
+        binding = ActivityPlayDetailBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         songId = intent?.getStringExtra("songId")
         viewModel = getSelfViewModel {
             songList = getHomeMusic()
@@ -80,21 +67,21 @@ class PlayDetailActivity : AppCompatActivity() {
         StarrySky.with().setOnPlayProgressListener(object : OnPlayProgressListener {
             @SuppressLint("SetTextI18n")
             override fun onPlayProgress(currPos: Long, duration: Long) {
-                if (seekBar.max.toLong() != duration) {
-                    seekBar.max = duration.toInt()
+                if (binding.seekBar.max.toLong() != duration) {
+                    binding.seekBar.max = duration.toInt()
                 }
-                seekBar.progress = currPos.toInt()
-                progressText.text = currPos.formatTime()
-                timeText.text = " / " + duration.formatTime()
+                binding.seekBar.progress = currPos.toInt()
+                binding.progressText.text = currPos.formatTime()
+                binding.timeText.text = " / " + duration.formatTime()
             }
         })
         //状态监听
         StarrySky.with().playbackState().observe(this, { it ->
             when (it.stage) {
                 PlaybackStage.PLAYING -> {
-                    songName?.text = it.songInfo?.songName
-                    songDesc?.text = it.songInfo?.artist
-                    btnPlayState?.setImageResource(R.drawable.gdt_ic_pause)
+                    binding.songName.text = it.songInfo?.songName
+                    binding.songDesc.text = it.songInfo?.artist
+                    binding.btnPlayState.setImageResource(R.drawable.gdt_ic_pause)
                     notifyDialogItem()
                 }
                 PlaybackStage.SWITCH -> { //切歌
@@ -104,16 +91,16 @@ class PlayDetailActivity : AppCompatActivity() {
                 }
                 PlaybackStage.PAUSE,
                 PlaybackStage.IDLE -> {
-                    btnPlayState?.setImageResource(R.drawable.gdt_ic_play)
+                    binding.btnPlayState.setImageResource(R.drawable.gdt_ic_play)
                 }
                 PlaybackStage.ERROR -> {
-                    btnPlayState?.setImageResource(R.drawable.gdt_ic_play)
+                    binding.btnPlayState.setImageResource(R.drawable.gdt_ic_play)
                     showToast("播放失败：" + it.errorMsg)
                 }
             }
         })
         //进度SeekBar
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {}
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onStopTrackingTouch(seekBar: SeekBar) {
@@ -122,12 +109,12 @@ class PlayDetailActivity : AppCompatActivity() {
         })
 
         //速度SeekBar，seekBarSpeed配置最大速度是当前2倍
-        seekBarSpeed.progress = StarrySky.with().getPlaybackSpeed().toInt() * 100
-        tvSpeed.text = seekBarSpeed.progress.toString() + " %"
-        seekBarSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.seekBarSpeed.progress = StarrySky.with().getPlaybackSpeed().toInt() * 100
+        binding.tvSpeed.text = binding.seekBarSpeed.progress.toString() + " %"
+        binding.seekBarSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 StarrySky.with().onDerailleur(false, progress.toFloat() / 100)
-                tvSpeed.text = "$progress %"
+                binding.tvSpeed.text = "$progress %"
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
@@ -135,12 +122,12 @@ class PlayDetailActivity : AppCompatActivity() {
         })
 
         //音量SeekBar
-        seekBarVolume.progress = (StarrySky.with().getVolume() * 100f).toInt()
-        tvVolume.text = seekBarVolume.progress.toString() + " %"
-        seekBarVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.seekBarVolume.progress = (StarrySky.with().getVolume() * 100f).toInt()
+        binding.tvVolume.text = binding.seekBarVolume.progress.toString() + " %"
+        binding.seekBarVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 StarrySky.with().setVolume(progress.toFloat() / 100f)
-                tvVolume.text = "$progress %"
+                binding.tvVolume.text = "$progress %"
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
@@ -152,54 +139,54 @@ class PlayDetailActivity : AppCompatActivity() {
         when (repeatMode.repeatMode) {
             RepeatMode.REPEAT_MODE_NONE -> {
                 if (repeatMode.isLoop) {
-                    btnPlayMode?.setImageResource(R.drawable.bt_playpage_loop_press)
+                    binding.btnPlayMode.setImageResource(R.drawable.bt_playpage_loop_press)
                 } else {
-                    btnPlayMode?.setImageResource(R.drawable.ic_shunxu)
+                    binding.btnPlayMode.setImageResource(R.drawable.ic_shunxu)
                 }
             }
-            RepeatMode.REPEAT_MODE_ONE -> btnPlayMode?.setImageResource(R.drawable.ic_danqu)
-            RepeatMode.REPEAT_MODE_SHUFFLE -> btnPlayMode?.setImageResource(R.drawable.ic_shunji)
+            RepeatMode.REPEAT_MODE_ONE -> binding.btnPlayMode.setImageResource(R.drawable.ic_danqu)
+            RepeatMode.REPEAT_MODE_SHUFFLE -> binding.btnPlayMode.setImageResource(R.drawable.ic_shunji)
         }
         //点击逻辑:顺序播放->列表循环->单曲播放->单曲循环->随机播放->顺序播放
-        btnPlayMode.setOnClickListener {
+        binding.btnPlayMode.setOnClickListener {
             val model = StarrySky.with().getRepeatMode()
             when (model.repeatMode) {
                 RepeatMode.REPEAT_MODE_NONE -> if (model.isLoop) {
                     StarrySky.with().setRepeatMode(RepeatMode.REPEAT_MODE_ONE, false)
-                    btnPlayMode?.setImageResource(R.drawable.ic_danqu)
+                    binding.btnPlayMode.setImageResource(R.drawable.ic_danqu)
                     showToast("单曲播放（不循环）")
                 } else {
                     StarrySky.with().setRepeatMode(RepeatMode.REPEAT_MODE_NONE, true)
-                    btnPlayMode?.setImageResource(R.drawable.bt_playpage_loop_press)
+                    binding.btnPlayMode.setImageResource(R.drawable.bt_playpage_loop_press)
                     showToast("列表循环")
                 }
                 RepeatMode.REPEAT_MODE_ONE -> if (model.isLoop) {
                     StarrySky.with().setRepeatMode(RepeatMode.REPEAT_MODE_SHUFFLE, false)
-                    btnPlayMode?.setImageResource(R.drawable.ic_shunji)
+                    binding.btnPlayMode.setImageResource(R.drawable.ic_shunji)
                     showToast("随机播放")
                 } else {
                     StarrySky.with().setRepeatMode(RepeatMode.REPEAT_MODE_ONE, true)
-                    btnPlayMode?.setImageResource(R.drawable.ic_danqu)
+                    binding.btnPlayMode.setImageResource(R.drawable.ic_danqu)
                     showToast("单曲循环")
                 }
                 RepeatMode.REPEAT_MODE_SHUFFLE -> {
                     StarrySky.with().setRepeatMode(RepeatMode.REPEAT_MODE_NONE, false)
-                    btnPlayMode?.setImageResource(R.drawable.ic_shunxu)
+                    binding.btnPlayMode.setImageResource(R.drawable.ic_shunxu)
                     showToast("顺序播放")
                 }
             }
         }
 
         //下一首
-        btnNextSong?.setOnClickListener {
+        binding.btnNextSong.setOnClickListener {
             StarrySky.with().skipToNext()
         }
         //上一首
-        btnPreSong?.setOnClickListener {
+        binding.btnPreSong.setOnClickListener {
             StarrySky.with().skipToPrevious()
         }
         //播放&暂停
-        btnPlayState?.setOnClickListener {
+        binding.btnPlayState.setOnClickListener {
             if (StarrySky.with().isPlaying()) {
                 StarrySky.with().pauseMusic()
             } else {
@@ -207,12 +194,11 @@ class PlayDetailActivity : AppCompatActivity() {
             }
         }
         //播放列表
-        btnTime?.setOnClickListener {
+        binding.btnTime.setOnClickListener {
             showCustomViewDialog(BottomSheet(LayoutMode.WRAP_CONTENT))
         }
 
-
-        effect?.setOnClickListener {
+        binding.effect.setOnClickListener {
             navigationTo<EffectActivity>()
         }
     }
@@ -268,9 +254,9 @@ class PlayDetailActivity : AppCompatActivity() {
     }
 
     private fun initDetailUI(currSong: SongInfo) {
-        songCover.loadImage(currSong.songCover)
-        songName.text = currSong.songName
-        songDesc.text = currSong.artist
+        binding.songCover.loadImage(currSong.songCover)
+        binding.songName.text = currSong.songName
+        binding.songDesc.text = currSong.artist
     }
 
     private fun notifyDialogItem() {

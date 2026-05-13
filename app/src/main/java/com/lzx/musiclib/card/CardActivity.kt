@@ -6,13 +6,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentStatePagerAdapter
-import com.lzx.musiclib.R
+import com.lzx.musiclib.databinding.ActivityCardBinding
 import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.utils.orDef
-import kotlinx.android.synthetic.main.activity_card.tabLayout
-import kotlinx.android.synthetic.main.activity_card.viewpager
 
 class CardActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityCardBinding
 
     private var categoryList = mutableListOf<CardCategory>()
     private var isStopByOnPause = false
@@ -20,7 +20,8 @@ class CardActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_card)
+        binding = ActivityCardBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         StarrySky.closeNotification()
         StarrySky.setIsOpenNotification(false)
@@ -32,10 +33,10 @@ class CardActivity : AppCompatActivity() {
         categoryList.add(CardCategory("card5", "劲歌金曲"))
 
         adapter = CardCategoryAdapter(supportFragmentManager, categoryList)
-        viewpager.removeAllViews()
-        viewpager.removeAllViewsInLayout()
-        viewpager.adapter = adapter
-        tabLayout.setViewPager(viewpager)
+        binding.viewpager.removeAllViews()
+        binding.viewpager.removeAllViewsInLayout()
+        binding.viewpager.adapter = adapter
+        binding.tabLayout.setViewPager(binding.viewpager)
     }
 
     override fun onResume() {

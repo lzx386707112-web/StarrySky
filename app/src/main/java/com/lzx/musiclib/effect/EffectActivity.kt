@@ -16,32 +16,31 @@ import com.lzx.musiclib.adapter.addItem
 import com.lzx.musiclib.adapter.itemClicked
 import com.lzx.musiclib.adapter.setText
 import com.lzx.musiclib.adapter.setup
+import com.lzx.musiclib.databinding.ActivityEffectBinding
 import com.lzx.musiclib.weight.SpectrumDrawView
 import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.control.equalizerPresetName
 import com.sdsmdg.harjot.crollerTest.Croller
 import com.sdsmdg.harjot.crollerTest.OnCrollerChangeListener
-import kotlinx.android.synthetic.main.activity_effect.bassCroller
-import kotlinx.android.synthetic.main.activity_effect.equalizerBands
-import kotlinx.android.synthetic.main.activity_effect.frameLayout
-import kotlinx.android.synthetic.main.activity_effect.swEnable
-import kotlinx.android.synthetic.main.activity_effect.virtualizerCroller
 import kotlin.math.roundToInt
 
 class EffectActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityEffectBinding
 
     private val allPresetName = mutableListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_effect)
+        binding = ActivityEffectBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         StarrySky.saveEffectConfig(true)
         val effectSwitch = StarrySky.getEffectSwitch()
-        swEnable?.isChecked = effectSwitch
+        binding.swEnable.isChecked = effectSwitch
         if (effectSwitch) {
             StarrySky.effect().attachAudioEffect(StarrySky.with().getAudioSessionId())
-            equalizerBands?.initData()
+            binding.equalizerBands.initData()
             initBassCroller()
             initVirtualizerCroller()
         }
@@ -58,29 +57,29 @@ class EffectActivity : AppCompatActivity() {
             val presetName = StarrySky.effect().equalizerPresetName(preset.toShort())
             allPresetName.add(presetName.equalizerPresetName())
         }
-        frameLayout?.text = allPresetName.getOrNull(currentPreset + 1)
+        binding.frameLayout.text = allPresetName.getOrNull(currentPreset + 1)
 
-        frameLayout?.setOnClickListener {
+        binding.frameLayout.setOnClickListener {
             showEffectDialog()
         }
 
-        swEnable?.setOnCheckedChangeListener { _, isChecked ->
+        binding.swEnable.setOnCheckedChangeListener { _, isChecked ->
             StarrySky.effectSwitch(isChecked)
 
             if (isChecked) {
                 StarrySky.effect().attachAudioEffect(StarrySky.with().getAudioSessionId())
-                equalizerBands?.initData()
+                binding.equalizerBands.initData()
                 initBassCroller()
                 initVirtualizerCroller()
                 val preset = StarrySky.effect().equalizerCurrentPreset()
-                frameLayout?.text = allPresetName.getOrNull(preset + 1)
+                binding.frameLayout.text = allPresetName.getOrNull(preset + 1)
             } else {
                 StarrySky.effect().attachAudioEffect(0)
             }
-            frameLayout?.isEnabled = isChecked
-            equalizerBands?.isEnabled = isChecked
-            bassCroller?.isEnabled = isChecked
-            virtualizerCroller?.isEnabled = isChecked
+            binding.frameLayout.isEnabled = isChecked
+            binding.equalizerBands.isEnabled = isChecked
+            binding.bassCroller.isEnabled = isChecked
+            binding.virtualizerCroller.isEnabled = isChecked
         }
     }
 
@@ -111,14 +110,14 @@ class EffectActivity : AppCompatActivity() {
                         setText(R.id.songName to data)
                         itemClicked {
                             if (position == 0) {
-                                frameLayout?.text = data
+                                binding.frameLayout.text = data
                                 dialog?.dismiss()
                                 return@itemClicked
                             }
                             StarrySky.effect().equalizerUsePreset((position - 1).toShort())
                             StarrySky.effect().applyChanges()
-                            equalizerBands.notifyEqualizerSettingChanged()
-                            frameLayout?.text = data
+                            binding.equalizerBands.notifyEqualizerSettingChanged()
+                            binding.frameLayout.text = data
                             dialog?.dismiss()
                         }
                     }
@@ -135,10 +134,10 @@ class EffectActivity : AppCompatActivity() {
         val rangeSize = 25
         val min = 1
         val max = min + rangeSize
-        bassCroller.min = min
-        bassCroller.max = max
-        bassCroller.progress = min + (percent * rangeSize).roundToInt()
-        bassCroller.setOnCrollerChangeListener(object : OnCrollerChangeListener {
+        binding.bassCroller.min = min
+        binding.bassCroller.max = max
+        binding.bassCroller.progress = min + (percent * rangeSize).roundToInt()
+        binding.bassCroller.setOnCrollerChangeListener(object : OnCrollerChangeListener {
             override fun onProgressChanged(croller: Croller, progress: Int) {
                 val strength = ((progress - min) * (1000 / rangeSize)).toShort()
                 StarrySky.effect().bassBoostStrength(strength)
@@ -162,10 +161,10 @@ class EffectActivity : AppCompatActivity() {
         val rangeSize = 25
         val min = 1
         val max = min + rangeSize
-        virtualizerCroller.min = min
-        virtualizerCroller.max = max
-        virtualizerCroller.progress = min + (percent * virtualizerCroller.max).toInt()
-        virtualizerCroller.setOnCrollerChangeListener(object : OnCrollerChangeListener {
+        binding.virtualizerCroller.min = min
+        binding.virtualizerCroller.max = max
+        binding.virtualizerCroller.progress = min + (percent * binding.virtualizerCroller.max).toInt()
+        binding.virtualizerCroller.setOnCrollerChangeListener(object : OnCrollerChangeListener {
             override fun onProgressChanged(croller: Croller, progress: Int) {
                 val strength = ((progress - min) * (1000 / rangeSize)).toShort()
                 StarrySky.effect().virtualizerStrength(strength)
@@ -180,5 +179,4 @@ class EffectActivity : AppCompatActivity() {
             }
         })
     }
-
 }

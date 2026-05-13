@@ -24,28 +24,26 @@ import com.lzx.starrysky.OnPlayProgressListener
 import com.lzx.starrysky.SongInfo
 import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.manager.PlaybackStage
-import kotlinx.android.synthetic.main.activity_main.card
-import kotlinx.android.synthetic.main.activity_main.donutProgress
-import kotlinx.android.synthetic.main.activity_main.dynamic
-import kotlinx.android.synthetic.main.activity_main.recycleView
-import kotlinx.android.synthetic.main.activity_main.songCover
-import kotlinx.android.synthetic.main.activity_main.user
+import com.lzx.musiclib.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityMainBinding
 
     private var viewModel: MusicViewModel? = null
     private var rotationAnim: ObjectAnimator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        songCover?.loadImage("http://img01.jituwang.com/190613/256558-1Z613225P691.jpg")
-        rotationAnim = ObjectAnimator.ofFloat(songCover, "rotation", 0f, 359f)
+        binding.songCover.loadImage("http://img01.jituwang.com/190613/256558-1Z613225P691.jpg")
+        rotationAnim = ObjectAnimator.ofFloat(binding.songCover, "rotation", 0f, 359f)
         rotationAnim?.interpolator = LinearInterpolator()
         rotationAnim?.duration = 20000
         rotationAnim?.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator?) {
+            override fun onAnimationEnd(animation: Animator) {
                 super.onAnimationEnd(animation)
                 rotationAnim?.start()
             }
@@ -61,7 +59,7 @@ class MainActivity : AppCompatActivity() {
             when (it.stage) {
                 PlaybackStage.PLAYING -> {
                     rotationAnim?.start()
-                    songCover?.loadImage(it.songInfo?.songCover)
+                    binding.songCover.loadImage(it.songInfo?.songCover)
                 }
                 PlaybackStage.IDLE,
                 PlaybackStage.ERROR,
@@ -77,32 +75,32 @@ class MainActivity : AppCompatActivity() {
             override fun onPlayProgress(currPos: Long, duration: Long) {
                 val info = StarrySky.with().getNowPlayingSongInfo()
                 if (info?.tag != "home") return
-                if (donutProgress.getMax().toLong() != duration) {
-                    donutProgress.setMax(duration.toInt())
+                if (binding.donutProgress.getMax().toLong() != duration) {
+                    binding.donutProgress.setMax(duration.toInt())
                 }
-                donutProgress.setProgress(currPos.toFloat())
+                binding.donutProgress.setProgress(currPos.toFloat())
             }
         })
-        songCover?.setOnClickListener {
+        binding.songCover.setOnClickListener {
             StarrySky.with().getNowPlayingSongInfo()?.let {
                 navigationTo<PlayDetailActivity>("songId" to it.songId)
             }
         }
-        card?.setOnClickListener {
+        binding.card.setOnClickListener {
             navigationTo<CardActivity>()
         }
-        dynamic?.setOnClickListener {
+        binding.dynamic.setOnClickListener {
             StarrySky.with().stopMusic()
             StarrySky.closeNotification()
             navigationTo<DynamicActivity>()
         }
-        user?.setOnClickListener {
+        binding.user.setOnClickListener {
             navigationTo<UserInfoActivity>()
         }
     }
 
     private fun initRecycleView(list: MutableList<SongInfo>) {
-        recycleView?.setup<SongInfo> {
+        binding.recycleView.setup<SongInfo> {
             dataSource(list)
             adapter {
                 addItem(R.layout.item_home_music) {

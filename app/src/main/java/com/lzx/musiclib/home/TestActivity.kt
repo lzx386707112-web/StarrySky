@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
-import com.lzx.musiclib.R
 import com.lzx.musiclib.showToast
 import com.lzx.starrysky.OnPlayProgressListener
 import com.lzx.starrysky.SongInfo
@@ -20,50 +19,12 @@ import com.lzx.starrysky.notification.INotification
 import com.lzx.starrysky.utils.MainLooper
 import com.lzx.starrysky.utils.formatTime
 import com.lzx.starrysky.utils.md5
-import kotlinx.android.synthetic.main.activity_test.cacheSwitch
-import kotlinx.android.synthetic.main.activity_test.closeN
-import kotlinx.android.synthetic.main.activity_test.dash
-import kotlinx.android.synthetic.main.activity_test.delete
-import kotlinx.android.synthetic.main.activity_test.flac
-import kotlinx.android.synthetic.main.activity_test.getAudioSessionId
-import kotlinx.android.synthetic.main.activity_test.getNowPlayingIndex
-import kotlinx.android.synthetic.main.activity_test.getNowPlayingSongInfo
-import kotlinx.android.synthetic.main.activity_test.getPlayList
-import kotlinx.android.synthetic.main.activity_test.getRepeatMode
-import kotlinx.android.synthetic.main.activity_test.interceptor
-import kotlinx.android.synthetic.main.activity_test.isSkipToNextEnabled
-import kotlinx.android.synthetic.main.activity_test.isSkipToPreviousEnabled
-import kotlinx.android.synthetic.main.activity_test.m3u8Btn
-import kotlinx.android.synthetic.main.activity_test.newPlayer1
-import kotlinx.android.synthetic.main.activity_test.newPlayer2
-import kotlinx.android.synthetic.main.activity_test.notifySwitch
-import kotlinx.android.synthetic.main.activity_test.openN
-import kotlinx.android.synthetic.main.activity_test.pauseMusic
-import kotlinx.android.synthetic.main.activity_test.playMusic
-import kotlinx.android.synthetic.main.activity_test.playMusicById
-import kotlinx.android.synthetic.main.activity_test.playMusicByInfo
-import kotlinx.android.synthetic.main.activity_test.playMusicByUrl
-import kotlinx.android.synthetic.main.activity_test.querySongInfoInLocal
-import kotlinx.android.synthetic.main.activity_test.replay
-import kotlinx.android.synthetic.main.activity_test.restoreMusic
-import kotlinx.android.synthetic.main.activity_test.rtmpBtn
-import kotlinx.android.synthetic.main.activity_test.seekBarPro
-import kotlinx.android.synthetic.main.activity_test.seekBarSpeed
-import kotlinx.android.synthetic.main.activity_test.seekBarVolume
-import kotlinx.android.synthetic.main.activity_test.setRepeatMode
-import kotlinx.android.synthetic.main.activity_test.skipToNext
-import kotlinx.android.synthetic.main.activity_test.skipToPrevious
-import kotlinx.android.synthetic.main.activity_test.soundPool
-import kotlinx.android.synthetic.main.activity_test.stopMusic
-import kotlinx.android.synthetic.main.activity_test.stopNewPlayer1
-import kotlinx.android.synthetic.main.activity_test.stopNewPlayer2
-import kotlinx.android.synthetic.main.activity_test.tvPro
-import kotlinx.android.synthetic.main.activity_test.tvSpeed
-import kotlinx.android.synthetic.main.activity_test.tvVolume
-import kotlinx.android.synthetic.main.activity_test.updateList
+import com.lzx.musiclib.databinding.ActivityTestBinding
 
 
 open class TestActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityTestBinding
 
     val z =
         "https://github.com/EspoirX/lzxTreasureBox/raw/master/%E5%91%A8%E6%9D%B0%E4%BC%A6-%E5%91%8A%E7%99%BD%E6%B0%94%E7%90%83.mp3"
@@ -80,7 +41,8 @@ open class TestActivity : AppCompatActivity() {
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_test)
+        binding = ActivityTestBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         val songList = mutableListOf<SongInfo>()
         songList.add(SongInfo("z", z, "z"))
@@ -142,39 +104,39 @@ open class TestActivity : AppCompatActivity() {
             rtmpList.add(songInfo)
         }
 
-        playMusicById?.setOnClickListener {
+        binding.playMusicById.setOnClickListener {
             StarrySky.with().playMusicById("z")
         }
 
         val player = StarrySkyPlayer.create()
             .setAutoManagerFocus(false)
-        playMusicByUrl?.setOnClickListener {
+        binding.playMusicByUrl.setOnClickListener {
 //            StarrySky.with().playMusicByUrl(test)
             player.with().playMusicByUrl(test)
         }
-        playMusicByInfo?.setOnClickListener {
+        binding.playMusicByInfo.setOnClickListener {
 //            StarrySky.with().playMusicByInfo(SongInfo("a", a))
             StarrySky.with().playMusicByInfo(SongInfo("a", "http://ting6.yymp3.net:82/new14/zhangyj/5.mp3"))
         }
-        playMusic?.setOnClickListener {
+        binding.playMusic.setOnClickListener {
             StarrySky.with().playMusic(songList, 0)
         }
-        pauseMusic?.setOnClickListener {
+        binding.pauseMusic.setOnClickListener {
             StarrySky.with().pauseMusic()
         }
-        restoreMusic?.setOnClickListener {
+        binding.restoreMusic.setOnClickListener {
             StarrySky.with().restoreMusic()
         }
-        stopMusic?.setOnClickListener {
+        binding.stopMusic.setOnClickListener {
             StarrySky.with().stopMusic()
         }
-        skipToNext?.setOnClickListener {
+        binding.skipToNext.setOnClickListener {
             StarrySky.with().skipToNext()
         }
-        skipToPrevious?.setOnClickListener {
+        binding.skipToPrevious.setOnClickListener {
             StarrySky.with().skipToPrevious()
         }
-        setRepeatMode?.setOnClickListener {
+        binding.setRepeatMode.setOnClickListener {
             val mode = StarrySky.with().getRepeatMode()
             when (mode.repeatMode) {
                 RepeatMode.REPEAT_MODE_NONE -> {
@@ -192,51 +154,51 @@ open class TestActivity : AppCompatActivity() {
             }
             getRepeatModelImpl()
         }
-        getRepeatMode?.setOnClickListener {
+        binding.getRepeatMode.setOnClickListener {
             getRepeatModelImpl()
         }
-        getPlayList?.setOnClickListener {
+        binding.getPlayList.setOnClickListener {
             val list = StarrySky.with().getPlayList()
             showToast(list.size.toString())
         }
-        getNowPlayingSongInfo?.setOnClickListener {
+        binding.getNowPlayingSongInfo.setOnClickListener {
             val info = StarrySky.with().getNowPlayingSongInfo()
             showToast(info?.songId)
         }
-        getNowPlayingIndex?.setOnClickListener {
+        binding.getNowPlayingIndex.setOnClickListener {
             val index = StarrySky.with().getNowPlayingIndex()
             showToast(index.toString())
         }
 
-        isSkipToNextEnabled?.setOnClickListener {
+        binding.isSkipToNextEnabled.setOnClickListener {
             val isSkipToNextEnabled = StarrySky.with().isSkipToNextEnabled()
             showToast("isSkipToNextEnabled = $isSkipToNextEnabled")
         }
-        isSkipToPreviousEnabled?.setOnClickListener {
+        binding.isSkipToPreviousEnabled.setOnClickListener {
             val isSkipToPreviousEnabled = StarrySky.with().isSkipToPreviousEnabled()
             showToast("isSkipToPreviousEnabled = $isSkipToPreviousEnabled")
         }
-        getAudioSessionId?.setOnClickListener {
+        binding.getAudioSessionId.setOnClickListener {
             val getAudioSessionId = StarrySky.with().getAudioSessionId()
             showToast("getAudioSessionId = $getAudioSessionId")
         }
-        querySongInfoInLocal?.setOnClickListener {
+        binding.querySongInfoInLocal.setOnClickListener {
             val list = StarrySky.with().querySongInfoInLocal(this)
             showToast("size = ${list.size}")
         }
-        cacheSwitch?.text = if (StarrySky.isOpenCache()) "缓存开" else "缓存关"
-        cacheSwitch?.setOnClickListener {
+        binding.cacheSwitch.text = if (StarrySky.isOpenCache()) "缓存开" else "缓存关"
+        binding.cacheSwitch.setOnClickListener {
             StarrySky.with().cacheSwitch(!StarrySky.isOpenCache())
-            cacheSwitch?.text = if (StarrySky.isOpenCache()) "缓存开" else "缓存关"
+            binding.cacheSwitch.text = if (StarrySky.isOpenCache()) "缓存开" else "缓存关"
         }
-        interceptor?.setOnClickListener {
+        binding.interceptor.setOnClickListener {
             StarrySky.with()
                 .addInterceptor(InterceptorA())
                 .addInterceptor(InterceptorB(), InterceptorThread.IO)
                 .playMusic(songList, 0)
         }
         var index = 0
-        soundPool?.setOnClickListener {
+        binding.soundPool.setOnClickListener {
             if (StarrySky.with().isPlaying()) {
                 StarrySky.with().stopMusic()
             }
@@ -248,7 +210,7 @@ open class TestActivity : AppCompatActivity() {
                 index++
             }
         }
-        notifySwitch?.setOnClickListener {
+        binding.notifySwitch.setOnClickListener {
             val type = StarrySky.getNotificationType()
             if (type == INotification.SYSTEM_NOTIFICATION) {
                 StarrySky.changeNotification(INotification.CUSTOM_NOTIFICATION)
@@ -258,7 +220,7 @@ open class TestActivity : AppCompatActivity() {
                 showToast("当前使用系统通知栏")
             }
         }
-        updateList?.setOnClickListener {
+        binding.updateList.setOnClickListener {
             val list = mutableListOf<SongInfo>()
             songList.add(SongInfo("f", f, "f"))
             songList.add(SongInfo("g", g, "g"))
@@ -268,7 +230,7 @@ open class TestActivity : AppCompatActivity() {
             showToast("size = $size")
         }
 
-        flac?.setOnClickListener {
+        binding.flac.setOnClickListener {
             val list = mutableListOf<SongInfo>()
             val info = SongInfo()
             info.songId = "11111"
@@ -280,60 +242,60 @@ open class TestActivity : AppCompatActivity() {
             StarrySky.with().playMusic(list, 0)
         }
 
-        dash?.setOnClickListener {
+        binding.dash.setOnClickListener {
             val info = SongInfo()
             info.songId = "32313"
             info.songUrl = "https://storage.googleapis.com/wvmedia/clear/hevc/tears/tears.mpd"
             StarrySky.with().playMusicByInfo(info)
         }
 
-        m3u8Btn?.setOnClickListener {
+        binding.m3u8Btn.setOnClickListener {
             StarrySky.with().playMusic(m3u8List, 0)
         }
 
-        rtmpBtn?.setOnClickListener {
+        binding.rtmpBtn.setOnClickListener {
             StarrySky.with().playMusic(rtmpList, 0)
         }
-        delete?.setOnClickListener {
+        binding.delete.setOnClickListener {
             val list = StarrySky.with().getPlayList()
             StarrySky.with().removeSongInfo(list.getOrNull(1)?.songId)
             showToast("已删除")
         }
-        newPlayer1?.setOnClickListener {
+        binding.newPlayer1.setOnClickListener {
             val info = SongInfo(a.md5(), a)
 //            StarrySky.newPlayer(0)?.play(info, true)
         }
-        newPlayer2?.setOnClickListener {
+        binding.newPlayer2.setOnClickListener {
             val info = SongInfo(b.md5(), b)
 //            StarrySky.newPlayer(1)?.play(info, true)
         }
-        stopNewPlayer1?.setOnClickListener {
+        binding.stopNewPlayer1.setOnClickListener {
 //            StarrySky.newPlayer(0)?.stop()
         }
-        stopNewPlayer2?.setOnClickListener {
+        binding.stopNewPlayer2.setOnClickListener {
 //            StarrySky.newPlayer(1)?.stop()
         }
-        closeN?.setOnClickListener {
+        binding.closeN.setOnClickListener {
             StarrySky.closeNotification()
         }
-        openN?.setOnClickListener {
+        binding.openN.setOnClickListener {
             StarrySky.openNotification()
         }
-        replay?.setOnClickListener {
+        binding.replay.setOnClickListener {
             StarrySky.with().replayCurrMusic()
         }
 
         StarrySky.with().setOnPlayProgressListener(object : OnPlayProgressListener {
             @SuppressLint("SetTextI18n")
             override fun onPlayProgress(currPos: Long, duration: Long) {
-                if (seekBarPro.max.toLong() != duration) {
-                    seekBarPro.max = duration.toInt()
+                if (binding.seekBarPro.max.toLong() != duration) {
+                    binding.seekBarPro.max = duration.toInt()
                 }
-                seekBarPro.progress = currPos.toInt()
-                tvPro.text = "进度：" + currPos.formatTime() + " / " + duration.formatTime()
+                binding.seekBarPro.progress = currPos.toInt()
+                binding.tvPro.text = "进度：" + currPos.formatTime() + " / " + duration.formatTime()
             }
         })
-        seekBarPro.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.seekBarPro.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {}
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onStopTrackingTouch(seekBar: SeekBar) {
@@ -341,12 +303,12 @@ open class TestActivity : AppCompatActivity() {
             }
         })
 
-        seekBarVolume.progress = (StarrySky.with().getVolume() * 100f).toInt()
-        tvVolume.text = "音量：" + seekBarVolume.progress + " %"
-        seekBarVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.seekBarVolume.progress = (StarrySky.with().getVolume() * 100f).toInt()
+        binding.tvVolume.text = "音量：" + binding.seekBarVolume.progress + " %"
+        binding.seekBarVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 StarrySky.with().setVolume(progress.toFloat() / 100f)
-                tvVolume.text = "音量：$progress %"
+                binding.tvVolume.text = "音量：$progress %"
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
@@ -354,12 +316,12 @@ open class TestActivity : AppCompatActivity() {
         })
 
         //seekBarSpeed配置最大速度是当前2倍
-        seekBarSpeed.progress = StarrySky.with().getPlaybackSpeed().toInt() * 100
-        tvSpeed.text = "音速：" + seekBarSpeed.progress + " %"
-        seekBarSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.seekBarSpeed.progress = StarrySky.with().getPlaybackSpeed().toInt() * 100
+        binding.tvSpeed.text = "音速：" + binding.seekBarSpeed.progress + " %"
+        binding.seekBarSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 StarrySky.with().onDerailleur(false, progress.toFloat() / 100)
-                tvSpeed.text = "音速：$progress %"
+                binding.tvSpeed.text = "音速：$progress %"
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
@@ -369,22 +331,22 @@ open class TestActivity : AppCompatActivity() {
         StarrySky.with().playbackState().observe(this) {
             when (it.stage) {
                 PlaybackStage.PLAYING -> {
-                    seekBarVolume.progress = (StarrySky.with().getVolume() * 100f).toInt()
-                    tvVolume.text = "音量：" + seekBarVolume.progress + " %"
+                    binding.seekBarVolume.progress = (StarrySky.with().getVolume() * 100f).toInt()
+                    binding.tvVolume.text = "音量：" + binding.seekBarVolume.progress + " %"
 
-                    seekBarSpeed.progress = StarrySky.with().getPlaybackSpeed().toInt() * 100
-                    tvSpeed.text = "音速：" + seekBarSpeed.progress + " %"
+                    binding.seekBarSpeed.progress = StarrySky.with().getPlaybackSpeed().toInt() * 100
+                    binding.tvSpeed.text = "音速：" + binding.seekBarSpeed.progress + " %"
                 }
                 PlaybackStage.SWITCH -> {
                     showToast("切歌:last=" + it.lastSongInfo?.songName + " curr=" + it.songInfo?.songName)
                 }
                 PlaybackStage.IDLE -> {
-                    seekBarPro.progress = 0
-                    tvPro.text = "进度："
-                    seekBarVolume.progress = 0
-                    tvVolume.text = "音量："
-                    seekBarSpeed.progress = 0
-                    tvSpeed.text = "音速："
+                    binding.seekBarPro.progress = 0
+                    binding.tvPro.text = "进度："
+                    binding.seekBarVolume.progress = 0
+                    binding.tvVolume.text = "音量："
+                    binding.seekBarSpeed.progress = 0
+                    binding.tvSpeed.text = "音速："
                 }
             }
         }

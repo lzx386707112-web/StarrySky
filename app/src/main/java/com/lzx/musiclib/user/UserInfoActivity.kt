@@ -3,7 +3,6 @@ package com.lzx.musiclib.user
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.lzx.musiclib.R
 import com.lzx.musiclib.getSelfViewModel
 import com.lzx.musiclib.loadImage
 import com.lzx.musiclib.viewmodel.MusicViewModel
@@ -11,22 +10,23 @@ import com.lzx.starrysky.OnPlayProgressListener
 import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.manager.PlaybackStage
 import com.lzx.starrysky.utils.orDef
-import kotlinx.android.synthetic.main.activity_user.bgImage
-import kotlinx.android.synthetic.main.activity_user.recycleView
+import com.lzx.musiclib.databinding.ActivityUserBinding
 
 class UserInfoActivity : AppCompatActivity() {
 
+    private lateinit var binding: ActivityUserBinding
     private var userAdapter: UserAdapter? = null
     private var viewModel: MusicViewModel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_user)
+        binding = ActivityUserBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        bgImage.loadImage("https://up.zhuoku.org/pic/ba/5b/a0/ba5ba00c78aafbd57ba5021615b46d8a.jpg")
+        binding.bgImage.loadImage("https://up.zhuoku.org/pic/ba/5b/a0/ba5ba00c78aafbd57ba5021615b46d8a.jpg")
 
-        recycleView.layoutManager = LinearLayoutManager(this)
-        recycleView.adapter = UserAdapter().also { userAdapter = it }
+        binding.recycleView.layoutManager = LinearLayoutManager(this)
+        binding.recycleView.adapter = UserAdapter().also { userAdapter = it }
 
         viewModel = getSelfViewModel {
             val list = getUserMusicList()

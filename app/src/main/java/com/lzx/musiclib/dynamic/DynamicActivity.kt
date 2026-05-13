@@ -12,34 +12,29 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentStatePagerAdapter
 import com.lzx.musiclib.R
+import com.lzx.musiclib.databinding.ActivityDynamicBinding
 import com.lzx.musiclib.dp
 import com.lzx.musiclib.loadImage
 import com.lzx.starrysky.StarrySky
 import com.lzx.starrysky.manager.PlaybackStage
-import kotlinx.android.synthetic.main.activity_card.tabLayout
-import kotlinx.android.synthetic.main.activity_card.viewpager
-import kotlinx.android.synthetic.main.activity_dynamic.btnClose
-import kotlinx.android.synthetic.main.activity_dynamic.btnNext
-import kotlinx.android.synthetic.main.activity_dynamic.btnPlay
-import kotlinx.android.synthetic.main.activity_dynamic.btnPro
-import kotlinx.android.synthetic.main.activity_dynamic.songName
-import kotlinx.android.synthetic.main.activity_dynamic.userHeader
-import kotlinx.android.synthetic.main.activity_dynamic.voiceBar
 
 class DynamicActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityDynamicBinding
 
     private var categoryList = mutableListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_dynamic)
+        binding = ActivityDynamicBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         categoryList.add("推荐")
         categoryList.add("最新")
         val adapter = DynamicCategoryAdapter(supportFragmentManager, categoryList)
-        viewpager.removeAllViews()
-        viewpager.removeAllViewsInLayout()
-        viewpager.adapter = adapter
-        tabLayout.setViewPager(viewpager)
+        binding.viewpager.removeAllViews()
+        binding.viewpager.removeAllViewsInLayout()
+        binding.viewpager.adapter = adapter
+        binding.tabLayout.setViewPager(binding.viewpager)
 
         StarrySky.closeNotification()
         StarrySky.setIsOpenNotification(false)
@@ -47,66 +42,66 @@ class DynamicActivity : AppCompatActivity() {
         StarrySky.with().playbackState().observe(this, {
             when (it.stage) {
                 PlaybackStage.BUFFERING -> {
-                    btnPro.visibility = View.VISIBLE
+                    binding.btnPro.visibility = View.VISIBLE
                 }
                 PlaybackStage.PLAYING -> {
-                    userHeader.loadImage(it.songInfo?.songCover)
-                    songName.text = it.songInfo?.songName
-                    btnPro.visibility = View.GONE
-                    btnPlay.setImageResource(R.drawable.icon_dynamic_top_stop)
+                    binding.userHeader.loadImage(it.songInfo?.songCover)
+                    binding.songName.text = it.songInfo?.songName
+                    binding.btnPro.visibility = View.GONE
+                    binding.btnPlay.setImageResource(R.drawable.icon_dynamic_top_stop)
                     showVoiceBar()
                 }
                 PlaybackStage.ERROR,
                 PlaybackStage.PAUSE,
                 PlaybackStage.IDLE -> {
-                    btnPlay.setImageResource(R.drawable.icon_dynamic_top_play)
+                    binding.btnPlay.setImageResource(R.drawable.icon_dynamic_top_play)
                 }
             }
         })
 
-        btnPlay.setOnClickListener {
+        binding.btnPlay.setOnClickListener {
             if (StarrySky.with().isPlaying()) {
                 StarrySky.with().pauseMusic()
             } else {
                 StarrySky.with().restoreMusic()
             }
         }
-        btnNext.setOnClickListener {
+        binding.btnNext.setOnClickListener {
             StarrySky.with().skipToNext()
         }
-        btnClose.setOnClickListener {
+        binding.btnClose.setOnClickListener {
             StarrySky.with().stopMusic()
             hideVoiceBar()
         }
     }
 
     fun showVoiceBar() {
-        if (voiceBar.translationY == 0f) {
+        if (binding.voiceBar.translationY == 0f) {
             return
         }
-        val anim = ObjectAnimator.ofFloat(voiceBar, "translationY", (-50f).dp, 0f)
+        val anim = ObjectAnimator.ofFloat(binding.voiceBar, "translationY", (-50f).dp, 0f)
         anim.duration = 500
-        anim?.interpolator = LinearInterpolator()
+        anim.interpolator = LinearInterpolator()
         anim.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationStart(animation: Animator?) {
+            override fun onAnimationStart(animation: Animator) {
                 super.onAnimationStart(animation)
-                voiceBar.visibility = View.VISIBLE
+                binding.voiceBar.visibility = View.VISIBLE
             }
         })
         anim.start()
     }
 
     private fun hideVoiceBar() {
-        if (voiceBar.translationY == -50f) {
+        if (binding.voiceBar.translationY == -50f) {
             return
         }
-        val anim = ObjectAnimator.ofFloat(voiceBar, "translationY", 0f, (-50f).dp)
+        val anim = ObjectAnimator.ofFloat(binding.voiceBar, "translationY", 0f, (-50f).dp)
         anim.duration = 500
-        anim?.interpolator = LinearInterpolator()
+        anim.interpolator = LinearInterpolator()
         anim.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator?) {
+            override fun onAnimationEnd(animation: Animator) {
                 super.onAnimationEnd(animation)
-                voiceBar.visibility = View.GONE
+                binding.voiceBar.visibility = View.GONE
             }
         })
         anim.start()
