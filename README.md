@@ -4,6 +4,8 @@
 [![](https://jitpack.io/v/lzx386707112-web/StarrySky.svg)](https://jitpack.io/#lzx386707112-web/StarrySky)
 [![](https://img.shields.io/badge/license-MIT-green.svg)](http://choosealicense.com/licenses/mit/)
 
+因为原来的Github账号没法登陆了（https://github.com/EspoirX/StarrySky）现在这个库放到这里维护啦！！
+
 基于 **Kotlin + AndroidX + Media3（ExoPlayer）** 的 Android 音频播放封装：**播放队列、MediaSession、系统/自定义通知、边播边缓存、拦截链、倍速、音效、SoundPool** 等，适合快速接入音乐或长音频业务。
 
 ---
