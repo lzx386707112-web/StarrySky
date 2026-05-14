@@ -1,6 +1,16 @@
 # 集成与各功能说明（含示例）
 
-本文与当前源码分支一致：依赖 **JitPack**、初始化 **`StarrySkyInstall.init { }.apply()`**，并逐项说明 **缓存、通知栏、图片加载、拦截器、后台 Service、音频焦点、音效、SoundPool、全局监听、播放模式、定时关播** 等。
+本文与当前源码分支一致：依赖 **JitPack**；初始化**必须**以成员方法 **`apply()`** 收尾，并逐项说明 **缓存、通知栏、图片加载、拦截器、后台 Service、音频焦点、音效、SoundPool、全局监听、播放模式、定时关播** 等。
+
+### 初始化写法的区别
+
+| 写法 | 含义 |
+|------|------|
+| **`StarrySkyInstall.init(this).apply()`** | 只把 `Application` 交给库，**全部使用默认配置**，并完成注册、创建 `playbackHost` 等（适合先跑通再逐项加配置）。 |
+| **`StarrySkyInstall.init(this) { ... }.apply()`** | 在 lambda 里写 **`service { }` / `cache { }` / `notification { }` 等**（推荐），**最后必须**再调 **`.apply()`**。 |
+| **`StarrySkyInstall.init(this).setOpenCache(true)...apply()`** | 链式 setter（适合 Java），**最后必须**再调 **`.apply()`**。 |
+
+注意：单参数 **`init(this)`** 本身**不会**完成「绑定 Service / 进程内宿主 / 注册生命周期」等逻辑，**漏写 `.apply()` 会导致播放不可用**。
 
 ---
 
@@ -55,7 +65,15 @@ implementation "androidx.media3:media3-datasource-rtmp:$m3"
 
 ## 3. 初始化总览
 
-在 **`Application.onCreate`**（**主进程**）中：
+在 **`Application.onCreate`**（**主进程**）中，**任选其一**：
+
+**默认配置（一行）：**
+
+```kotlin
+StarrySkyInstall.init(this).apply()
+```
+
+**带分组配置（推荐）：**
 
 ```kotlin
 StarrySkyInstall.init(this) {
@@ -73,7 +91,7 @@ StarrySkyInstall.init(this) {
 }.apply()
 ```
 
-**必须调用 `.apply()`**，否则不会注册生命周期、创建 `playbackHost`、绑定 Service（若开启）等。
+**必须调用成员方法 `.apply()`**（不是 Kotlin 标准库里的 `apply` 块省略写法与这里同名），否则不会注册生命周期、创建 `playbackHost`、绑定 Service（若开启）等。
 
 ---
 
@@ -424,7 +442,7 @@ StarrySky.release()
 ## 19. 自检清单
 
 - [ ] JitPack 仓库已加，`implementation` 坐标与 **Tag** 正确  
-- [ ] 已调用 **`StarrySkyInstall.init { }.apply()`**  
+- [ ] 已调用 **`StarrySkyInstall.init(this).apply()`** 或 **`init(this) { ... }.apply()`**（**不能**漏掉末尾的 **`.apply()`**）  
 - [ ] 通知、存储、蓝牙等 **运行时权限** 与隐私政策一致  
 - [ ] 网络音频优先 **HTTPS**；HTTP 已配置 cleartext  
 - [ ] 未混用 **`StarrySky.with()`** 与 **`StarrySkyPlayer.with()`**  

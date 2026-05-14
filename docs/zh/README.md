@@ -56,28 +56,34 @@ freeCompilerArgs += ["-opt-in=androidx.media3.common.util.UnstableApi"]
 
 ## 三、30 秒最小示例
 
-**`Application`：**
+**`Application`（默认配置，一行初始化）：**
 
 ```kotlin
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
-        StarrySkyInstall.init(this) {
-            isDebug = BuildConfig.DEBUG
-            service { isConnectionService = false }
-            cache {
-                isOpen = true
-                destFileDir = getExternalFilesDir(null)!!.absolutePath + "/starrysky_cache"
-                maxBytes = 512L * 1024 * 1024
-            }
-            notification {
-                isOpen = false
-                type = INotification.SYSTEM_NOTIFICATION
-            }
-            image { loaderStrategy = GlideImageLoader() }
-        }.apply()
+        StarrySkyInstall.init(this).apply()
     }
 }
+```
+
+**需要改缓存/通知等时**，使用 **`init(this) { ... }.apply()`**（lambda + 末尾 **成员方法** `apply()`），示例：
+
+```kotlin
+StarrySkyInstall.init(this) {
+    isDebug = BuildConfig.DEBUG
+    service { isConnectionService = false }
+    cache {
+        isOpen = true
+        destFileDir = getExternalFilesDir(null)!!.absolutePath + "/starrysky_cache"
+        maxBytes = 512L * 1024 * 1024
+    }
+    notification {
+        isOpen = false
+        type = INotification.SYSTEM_NOTIFICATION
+    }
+    image { loaderStrategy = GlideImageLoader() }
+}.apply()
 ```
 
 **界面中播放：**

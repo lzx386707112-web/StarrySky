@@ -32,9 +32,9 @@ import java.util.WeakHashMap
  * StarrySky 初始化与全局配置入口。
  *
  * ### 配置方式
- * - **结构化（推荐）**：使用 [init] 的 lambda 重载，在 [settings] 上按 `service` / `notification` / `cache` 等分组编写；
- *   与链式 `setXxx()` 修改的是同一套 [StarrySkyInstallSettings]。
- * - **链式**：`init(app).setOpenCache(true)...apply()`，适合 Java 或简短场景。
+ * - **最简**：`init(app).apply()` —— 仅设置 [globalContext] 后立刻调用 **`StarrySkyInstall` 的成员函数 `apply()`** 完成注册与宿主创建；中间无配置则使用默认 [StarrySkyInstallSettings]。
+ * - **结构化（推荐）**：`init(app) { service { } cache { } ... }.apply()` —— lambda 配置 [settings]，**最后仍须** 调用成员 **`apply()`**。
+ * - **链式**：`init(app).setOpenCache(true)...apply()` —— 适合 Java 或简短场景；**最后仍须** 调用成员 **`apply()`**。
  *
  * ### 运行时权限与隐私合规
  * 本库在 manifest 中合并的 `POST_NOTIFICATIONS`、`BLUETOOTH_CONNECT` 等仅表示可选能力所需声明，
@@ -164,7 +164,7 @@ object StarrySkyInstall {
     }
 
     /**
-     * 使用分组配置初始化 [globalContext]，并在 lambda 内完成 [settings] 填写；之后仍需调用 [apply]。
+     * 使用分组配置初始化 [globalContext]，并在 lambda 内完成 [settings] 填写；**之后必须调用 `StarrySkyInstall` 的成员函数 `apply()`**。
      */
     @JvmStatic
     fun init(application: Application, configure: StarrySkyInstallSettings.() -> Unit): StarrySkyInstall {

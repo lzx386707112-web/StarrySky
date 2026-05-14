@@ -16,6 +16,12 @@ import com.lzx.starrysky.playback.Playback
  * 推荐使用 [StarrySkyInstall.init] 的 lambda 重载按模块填写，避免 Application 里出现超长链式调用：
  *
  * ```
+ * StarrySkyInstall.init(this).apply()
+ * ```
+ *
+ * 或带分组配置（**最后必须**再调 `StarrySkyInstall` **成员函数** `apply()`）：
+ *
+ * ```
  * StarrySkyInstall.init(this) {
  *     isDebug = BuildConfig.DEBUG
  *     service {

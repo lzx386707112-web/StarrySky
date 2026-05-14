@@ -36,27 +36,18 @@ dependencies {
 
 ## 最小初始化示例
 
+**默认配置（一行）：** `init` 只写入 `Application`，**必须**再调成员方法 **`apply()`** 完成注册与宿主创建。
+
 ```kotlin
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
-        StarrySkyInstall.init(this) {
-            isDebug = BuildConfig.DEBUG
-            service { isConnectionService = false }
-            cache {
-                isOpen = true
-                destFileDir = getExternalFilesDir(null)!!.absolutePath + "/starrysky_cache"
-                maxBytes = 512L * 1024 * 1024
-            }
-            notification {
-                isOpen = false
-                type = INotification.SYSTEM_NOTIFICATION
-            }
-            image { loaderStrategy = GlideImageLoader() }
-        }.apply()
+        StarrySkyInstall.init(this).apply()
     }
 }
 ```
+
+**带配置时**使用 **`StarrySkyInstall.init(this) { ... }.apply()`**（lambda 配置 `service` / `cache` / `notification` 等，**末尾仍是 `.apply()`**）。完整示例见 **[docs/zh/installation-and-configuration.md](docs/zh/installation-and-configuration.md)**。
 
 ```kotlin
 StarrySky.with().playMusicByUrl("https://example.com/audio.mp3")
