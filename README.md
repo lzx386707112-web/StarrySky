@@ -18,3 +18,7 @@
 
 [项目文档](https://espoirx.github.io/StarrySky/#/)
 
+## 本仓库中文文档（架构 / 初始化 / API / 排错）
+
+当前分支补充了与 **Media3** 及近期改动一致的分篇说明，入口：**[docs/zh/README.md](docs/zh/README.md)**。
+

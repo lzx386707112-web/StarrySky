@@ -1,5 +1,8 @@
 # A Powerful and Streamline MusicLibrary
 
+> **本仓库新版中文分文档（推荐）**：[docs/zh/README.md](zh/README.md) — 项目架构、集成与初始化、API 说明、注意事项与排错。  
+> 下文为历史说明节选，部分依赖版本（如 ExoPlayer 2.14）可能与当前 `androidx.media3` 分支不一致，请以 `:starrysky` 模块与 `docs/zh` 为准。
+
 [ ![](https://img.shields.io/badge/platform-android-green.svg) ](http://developer.android.com/index.html)
 [![](https://jitpack.io/v/EspoirX/StarrySky.svg)](https://jitpack.io/#EspoirX/StarrySky)
 [ ![](https://img.shields.io/badge/license-MIT-green.svg) ](http://choosealicense.com/licenses/mit/)
