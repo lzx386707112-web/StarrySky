@@ -48,6 +48,8 @@ open class TestApplication : Application() {
         }
         StarrySkyInstall.init(this) {
             service {
+                // 进程内 MusicPlaybackFacade，避免 bind 完成前 StarrySky.with() 拿到 null 宿主导致暂停/停止无效
+                isConnectionService = false
                 startForegroundByWorkManager = true
             }
             cache {

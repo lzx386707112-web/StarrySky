@@ -13,7 +13,10 @@ import com.lzx.starrysky.service.MusicRuntimeFactory
 
 class StarrySkyPlayer(private var userGlobalConfig: Boolean = true) {
 
-
+    /**
+     * 独立播放运行时：与 [StarrySky.with] 使用不同的 [MusicPlaybackHost] / [PlayerControl]，
+     * 进度、暂停、通知等 API 须在**同一** [with] 返回的 [PlayerControl] 上调用，勿与全局 [StarrySky.with] 混用。
+     */
     companion object {
         @JvmOverloads
         @JvmStatic

@@ -9,7 +9,6 @@ import com.lzx.musiclib.showToast
 import com.lzx.starrysky.OnPlayProgressListener
 import com.lzx.starrysky.SongInfo
 import com.lzx.starrysky.StarrySky
-import com.lzx.starrysky.StarrySkyPlayer
 import com.lzx.starrysky.control.RepeatMode
 import com.lzx.starrysky.intercept.InterceptCallback
 import com.lzx.starrysky.intercept.InterceptorThread
@@ -107,11 +106,10 @@ open class TestActivity : AppCompatActivity() {
             StarrySky.with().playMusicById("z")
         }
 
-        val player = StarrySkyPlayer.create()
-            .setAutoManagerFocus(false)
         binding.playMusicByUrl.setOnClickListener {
-//            StarrySky.with().playMusicByUrl(test)
-            player.with().playMusicByUrl(a)
+            // 须与 setOnPlayProgressListener / seekTo 使用同一套 StarrySky.with()；
+            // StarrySkyPlayer.create().with() 是独立 PlayerControl，进度条不会更新。
+            StarrySky.with().playMusicByUrl(test)
         }
         binding.playMusicByInfo.setOnClickListener {
 //            StarrySky.with().playMusicByInfo(SongInfo("a", a))
@@ -284,16 +282,6 @@ open class TestActivity : AppCompatActivity() {
             StarrySky.with().replayCurrMusic()
         }
 
-        StarrySky.with().setOnPlayProgressListener(object : OnPlayProgressListener {
-            @SuppressLint("SetTextI18n")
-            override fun onPlayProgress(currPos: Long, duration: Long) {
-                if (binding.seekBarPro.max.toLong() != duration) {
-                    binding.seekBarPro.max = duration.toInt()
-                }
-                binding.seekBarPro.progress = currPos.toInt()
-                binding.tvPro.text = "进度：" + currPos.formatTime() + " / " + duration.formatTime()
-            }
-        })
         binding.seekBarPro.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {}
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
@@ -349,6 +337,28 @@ open class TestActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        StarrySky.with().setOnPlayProgressListener(
+            object : OnPlayProgressListener {
+                @SuppressLint("SetTextI18n")
+                override fun onPlayProgress(currPos: Long, duration: Long) {
+                    if (binding.seekBarPro.max.toLong() != duration) {
+                        binding.seekBarPro.max = duration.toInt()
+                    }
+                    binding.seekBarPro.progress = currPos.toInt()
+                    binding.tvPro.text = "进度：" + currPos.formatTime() + " / " + duration.formatTime()
+                }
+            },
+            toString()
+        )
+    }
+
+    override fun onPause() {
+        StarrySky.with().removeProgressListener(toString())
+        super.onPause()
     }
 
     private fun getRepeatModelImpl() {

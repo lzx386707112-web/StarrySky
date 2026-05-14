@@ -90,6 +90,14 @@ class StarrySkyInstallSettings internal constructor() {
 }
 
 class ServiceSettings internal constructor() {
+    /**
+     * `true`（默认）：通过 bind [com.lzx.starrysky.service.MusicService] 使用远程宿主，连接为异步。
+     * [StarrySky.with] 若在 [android.content.ServiceConnection.onServiceConnected] 之前首次创建，
+     * 协调层须能解析到 [StarrySkyInstall.playbackHost]（见 [com.lzx.starrysky.manager.PlaybackManager]）。
+     *
+     * `false`：进程内 [com.lzx.starrysky.service.MusicPlaybackFacade]，无 bind 时序问题；定时关播「播完当前曲再停」
+     * 依赖 Service 的路径在无 Service 时为 no-op（见 [com.lzx.starrysky.service.TimedOffHandlerFactory]）。
+     */
     var isConnectionService: Boolean = true
     var isStartService: Boolean = false
     var onlyStartService: Boolean = true

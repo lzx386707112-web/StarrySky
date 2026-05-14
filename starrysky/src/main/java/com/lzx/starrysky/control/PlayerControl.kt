@@ -15,6 +15,7 @@ import com.lzx.starrysky.intercept.StarrySkyInterceptor
 import com.lzx.starrysky.manager.PlaybackManager
 import com.lzx.starrysky.manager.PlaybackStage
 import com.lzx.starrysky.playback.FocusInfo
+import com.lzx.starrysky.playback.Playback
 import com.lzx.starrysky.queue.MediaSourceProvider
 import com.lzx.starrysky.service.MusicPlaybackHost
 import com.lzx.starrysky.utils.MainLooper
@@ -430,24 +431,39 @@ class PlayerControl(
     fun getPlaybackSpeed(): Float = playbackManager.player()?.getPlaybackSpeed().orDef()
 
     /**
-     * 比较方便的判断当前媒体是否在播放
+     * 是否在「正在出声播放」阶段（与 [Playback.STATE_PLAYING] 对齐）。
+     *
+     * 优先读引擎 [Playback.playbackState]，避免仅依赖 [playbackState] LiveData 时（回调尚未绑定、
+     * 或 UI 状态与 Exo 短暂不同步）出现「其实在播但返回 false」。
      */
-    fun isPlaying(): Boolean = playbackState.value?.stage == PlaybackStage.PLAYING
+    fun isPlaying(): Boolean {
+        playbackManager.player()?.let { return it.playbackState() == Playback.STATE_PLAYING }
+        return playbackState.value?.stage == PlaybackStage.PLAYING
+    }
 
     /**
-     * 比较方便的判断当前媒体是否暂停中
+     * 是否处于暂停态（与 [Playback.STATE_PAUSED] 对齐）；引擎不可用时回退 LiveData。
      */
-    fun isPaused(): Boolean = playbackState.value?.stage == PlaybackStage.PAUSE
+    fun isPaused(): Boolean {
+        playbackManager.player()?.let { return it.playbackState() == Playback.STATE_PAUSED }
+        return playbackState.value?.stage == PlaybackStage.PAUSE
+    }
 
     /**
-     * 比较方便的判断当前媒体是否空闲
+     * 是否空闲（与 [Playback.STATE_IDLE] 对齐）；引擎不可用时回退 LiveData。
      */
-    fun isIdle(): Boolean = playbackState.value?.stage == PlaybackStage.IDLE
+    fun isIdle(): Boolean {
+        playbackManager.player()?.let { return it.playbackState() == Playback.STATE_IDLE }
+        return playbackState.value?.stage == PlaybackStage.IDLE
+    }
 
     /**
-     * 比较方便的判断当前媒体是否缓冲
+     * 是否缓冲中（与 [Playback.STATE_BUFFERING] 对齐）；引擎不可用时回退 LiveData。
      */
-    fun isBuffering(): Boolean = playbackState.value?.stage == PlaybackStage.BUFFERING
+    fun isBuffering(): Boolean {
+        playbackManager.player()?.let { return it.playbackState() == Playback.STATE_BUFFERING }
+        return playbackState.value?.stage == PlaybackStage.BUFFERING
+    }
 
     /**
      * 判断传入的音乐是不是正在播放的音乐
@@ -601,17 +617,20 @@ class PlayerControl(
     fun playbackState(): MutableLiveData<PlaybackStage> = playbackState
 
     /**
-     * 设置进度监听
-     * tag:进度标记
+     * 设置进度监听。
+     *
+     * **tag 说明**：默认取当前栈顶 Activity 的 `toString()`。在 Activity [android.app.Activity.onCreate]
+     * 里注册时，该 Activity 往往尚未进入生命周期栈（`onActivityCreated` 晚于 `onCreate`），栈顶可能为空，
+     * 若再用 `tag?.let` 注册会导致监听根本未加入、进度永不回调。因此当 tag 为空时会回退到
+     * [DEFAULT_PLAY_PROGRESS_TAG]；仍建议在 [android.app.Activity.onResume] 中注册并显式传入 `this.toString()`。
      */
     fun setOnPlayProgressListener(
         listener: OnPlayProgressListener,
         tag: String? = StarrySky.getStackTopActivity()?.toString()
     ) {
-        tag?.let {
-            progressListener.put(it, listener)
-        }
-        if (!isRunningTimeTask && isPlaying()) {
+        val key = tag ?: DEFAULT_PLAY_PROGRESS_TAG
+        progressListener[key] = listener
+        if (!isRunningTimeTask && (isPlaying() || isBuffering())) {
             timerTaskManager?.startToUpdateProgress()
         }
     }
@@ -634,6 +653,9 @@ class PlayerControl(
                     if (effectSwitch) {
                         StarrySkyInstall.voiceEffect.attachAudioEffect(getAudioSessionId())
                     }
+                }
+                PlaybackStage.BUFFERING -> {
+                    timerTaskManager?.startToUpdateProgress()
                 }
                 PlaybackStage.PAUSE,
                 PlaybackStage.ERROR,
@@ -665,5 +687,9 @@ class PlayerControl(
         timerTaskManager?.removeUpdateProgressTask()
         isRunningTimeTask = false
         timerTaskManager = null
+    }
+
+    companion object {
+        private const val DEFAULT_PLAY_PROGRESS_TAG = "StarrySky.DefaultPlayProgress"
     }
 }

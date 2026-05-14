@@ -36,7 +36,11 @@ object StarrySky {
     fun getActivityStack() = StarrySkyInstall.appLifecycleCallback.activityStack
 
     /**
-     * 获取操作 api
+     * 获取操作 api（全局单例 [PlayerControl]）。
+     *
+     * 首次调用时创建控制器；内部 [PlaybackManager] 通过 [StarrySkyInstall.playbackHost] 解析当前宿主与引擎，
+     * 与 `bindService` 异步完成的先后无关。若需**第二套独立播放链**（独立通知/缓存配置等），请使用
+     * [StarrySkyPlayer]，其 [StarrySkyPlayer.with] 与全局 [with] 不共享队列与进度监听。
      */
     @JvmStatic
     fun with(): PlayerControl {

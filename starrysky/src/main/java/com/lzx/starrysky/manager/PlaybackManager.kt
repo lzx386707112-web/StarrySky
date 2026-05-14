@@ -30,6 +30,7 @@ class PlaybackManager(
     provider: MediaSourceProvider,
     private val appInterceptors: MutableList<Pair<StarrySkyInterceptor, String>>,
     private val playbackEvents: PlaybackEventsSink,
+    /** 构造 [PlayerControl] 时传入的宿主；若当时 [StarrySkyInstall.apply] 尚未完成 bind，可能为 null。 */
     private val playbackHost: MusicPlaybackHost?
 ) : PlaybackEngineCallbackBridge.Host {
 
@@ -43,15 +44,43 @@ class PlaybackManager(
     var isSkipMediaQueue = false
     private var withOutCallback = false
 
+    /** 已与 [playbackEngineCallback] / MediaSession 绑定过的引擎实例，避免重复 setCallback。 */
+    private var engineCallbackBindingTarget: Playback? = null
+
     init {
-        player()?.setCallback(playbackEngineCallback)
-        playbackHost?.setSessionToken(sessionManager.getMediaSession())
+        val host = resolvedHost()
+        val engine = host?.player
+        if (host != null && engine != null) {
+            bindEngineCallbackIfNeeded(host, engine)
+        }
+    }
+
+    /**
+     * 与 [StarrySkyInstall.playbackHost] 对齐：异步 bind Service 时，构造期捕获的 [playbackHost] 可能一直为 null，
+     * 但 Install 在 [ServiceConnection.onServiceConnected] 后会指向真实 [MusicPlaybackHost]。
+     */
+    private fun resolvedHost(): MusicPlaybackHost? =
+        playbackHost ?: StarrySkyInstall.playbackHost
+
+    private fun bindEngineCallbackIfNeeded(host: MusicPlaybackHost, engine: Playback) {
+        if (engineCallbackBindingTarget === engine) return
+        synchronized(this) {
+            if (engineCallbackBindingTarget === engine) return
+            engine.setCallback(playbackEngineCallback)
+            host.setSessionToken(sessionManager.getMediaSession())
+            engineCallbackBindingTarget = engine
+        }
     }
 
     /**
      * 当前播放器
      */
-    fun player() = playbackHost?.player
+    fun player(): Playback? {
+        val host = resolvedHost() ?: return null
+        val engine = host.player ?: return null
+        bindEngineCallbackIfNeeded(host, engine)
+        return engine
+    }
 
     /**
      * 配置拦截器
@@ -116,9 +145,8 @@ class PlaybackManager(
      * 暂停
      */
     fun onPause() {
-        if (player()?.isPlaying() == true) {
-            player()?.pause()
-        }
+        // 不依赖 isPlaying：BUFFERING 等状态下也应能停住；且避免因状态判断漏调导致「点了没反应」。
+        player()?.pause()
     }
 
     /**
@@ -362,7 +390,7 @@ class PlaybackManager(
      * 定时暂停
      */
     fun onStopByTimedOff(time: Long, isPause: Boolean, finishCurrSong: Boolean) {
-        playbackHost?.onStopByTimedOff(time, isPause, finishCurrSong)
+        resolvedHost()?.onStopByTimedOff(time, isPause, finishCurrSong)
     }
 
     /**
@@ -388,7 +416,7 @@ class PlaybackManager(
         }
         updatePlaybackState(songInfo, null, playbackState)
         if (playbackState == Playback.STATE_IDLE) {
-            val consumedTimedOff = playbackHost?.consumeTimedOffAfterSongEndIdle() == true
+            val consumedTimedOff = resolvedHost()?.consumeTimedOffAfterSongEndIdle() == true
             if (!isActionStop && !consumedTimedOff) {
                 onPlaybackCompletion()
             }
@@ -455,14 +483,14 @@ class PlaybackManager(
 
     private fun updatePlaybackState(currPlayInfo: SongInfo?, errorMsg: String?, state: Int) {
         val newState = state.changePlaybackState()
-        playbackHost?.onChangedNotificationState(
+        resolvedHost()?.onChangedNotificationState(
             currPlayInfo, newState,
             isSkipToNextEnabled(), isSkipToPreviousEnabled()
         )
         when (newState) {
             PlaybackStage.BUFFERING,
             PlaybackStage.PAUSE -> {
-                playbackHost?.startNotification(currPlayInfo, newState)
+                resolvedHost()?.startNotification(currPlayInfo, newState)
             }
         }
         if (newState == PlaybackStage.ERROR) {
